@@ -27,4 +27,34 @@ class LegalCubit extends Cubit<LegalState> {
       emit(LegalError(e.toString()));
     }
   }
+
+  Future<void> fetchSubcategories(String categoryId) async {
+    emit(LegalLoading());
+    try {
+      final subcategories = await getSubcategoriesUseCase(categoryId);
+      emit(SubcategoriesLoaded(subcategories));
+    } catch (e) {
+      emit(LegalError(e.toString()));
+    }
+  }
+
+  Future<void> fetchLegalCases(String subcategoryId) async {
+    emit(LegalLoading());
+    try {
+      final cases = await getLegalCasesUseCase(subcategoryId);
+      emit(LegalCasesLoaded(cases));
+    } catch (e) {
+      emit(LegalError(e.toString()));
+    }
+  }
+
+  Future<void> fetchCaseSteps(String caseId) async {
+    emit(LegalLoading());
+    try {
+      final steps = await getCaseStepsUseCase(caseId);
+      emit(CaseStepsLoaded(steps));
+    } catch (e) {
+      emit(LegalError(e.toString()));
+    }
+  }
 }
