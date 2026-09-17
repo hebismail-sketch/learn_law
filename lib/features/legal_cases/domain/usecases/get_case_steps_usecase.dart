@@ -1,5 +1,5 @@
 
-import '../../data/repositories/legal_repository.dart';
+import '../repositories/legal_repository.dart';
 import '../entities/case_step_entity.dart';
 
 

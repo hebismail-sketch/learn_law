@@ -1,4 +1,4 @@
-import '../../data/repositories/legal_repository.dart';
+import '../repositories/legal_repository.dart';
 import '../entities/legal_case_entity.dart';
 
 
