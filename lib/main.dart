@@ -14,7 +14,7 @@ void main() async {
     anonKey: 'sb_publishable_XkB0rrhhqcw9A3xcJzc9Dg_5ZtCfy6O',
   );
 
-  // تهيئة حقن التبعيات
+
   await initDependencies();
 
   runApp(const MyApp());
