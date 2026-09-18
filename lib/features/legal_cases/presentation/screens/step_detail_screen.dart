@@ -28,7 +28,7 @@ class StepDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // بطاقة رأس الخطوة
+            // Render step header card container
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20.0),
@@ -89,7 +89,7 @@ class StepDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // بطاقة الشرح والإجراءات
+            // Render operational procedures and description card
             _DetailSectionCard(
               title: 'الإجراءات العملية والشرح',
               icon: Icons.assignment_outlined,
@@ -101,13 +101,13 @@ class StepDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // بطاقة تنبيهات المحامي
+            // Render lawyer tips and notes card
             const _DetailSectionCard(
               title: 'نصائح وملاحظات للمحامي',
               icon: Icons.lightbulb_outline_rounded,
               iconColor: Colors.amber,
               content:
-                  'تأكد من توقيع الموكل على كافة التوكيلات الرسمية والتحقق من صحة تواريخ المستندات وسلامتها قبل إيداع الصحيفة أمام قلم الكتاب.',
+              'تأكد من توقيع الموكل على كافة التوكيلات الرسمية والتحقق من صحة تواريخ المستندات وسلامتها قبل إيداع الصحيفة أمام قلم الكتاب.',
             ),
           ],
         ),

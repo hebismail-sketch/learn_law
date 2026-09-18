@@ -50,6 +50,7 @@ class LegalCasesScreen extends StatelessWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16.0),
                       onTap: () {
+                        // Navigate to case roadmap screen and fetch case steps
                         Navigator.push(
                           context,
                           MaterialPageRoute(

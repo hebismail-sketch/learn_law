@@ -43,7 +43,7 @@ class CaseRoadmapScreen extends StatelessWidget {
 
             return Column(
               children: [
-                // رأس تعريفي بمراحل الدعوى
+                // Display roadmap header summary
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -80,7 +80,7 @@ class CaseRoadmapScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
 
-                // رسمة الطريق والنقاط التفاعلية
+                // Build interactive roadmap step nodes list
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
@@ -142,7 +142,7 @@ class _RoadmapStepNode extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // كارت الخطوة التفاعلي
+          // Render interactive step card container
           Expanded(
             child: Container(
               margin: const EdgeInsets.only(bottom: 24.0),
@@ -227,10 +227,10 @@ class _RoadmapStepNode extends StatelessWidget {
 
           const SizedBox(width: 16),
 
-          // عمود الطريق: النقطة المرقمة والخط الواصل بين النقط
+          // Render timeline indicator column and connecting line
           Column(
             children: [
-              // النقطة المرقمة للطريق
+              // Render numbered sequence node
               Container(
                 width: 44,
                 height: 44,
@@ -261,7 +261,7 @@ class _RoadmapStepNode extends StatelessWidget {
                 ),
               ),
 
-              // خط الطريق الممتد للنقطة التالية
+              // Render line connecting to next milestone node
               if (!isLast)
                 Expanded(
                   child: Container(

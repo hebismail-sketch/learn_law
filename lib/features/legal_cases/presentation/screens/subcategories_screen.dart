@@ -50,6 +50,7 @@ class SubcategoriesScreen extends StatelessWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16.0),
                       onTap: () {
+                        // Navigate to legal cases screen and fetch associated cases
                         Navigator.push(
                           context,
                           MaterialPageRoute(

@@ -16,6 +16,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   void initState() {
     super.initState();
+    // Fetch main categories on initialization
     context.read<LegalCubit>().fetchCategories();
   }
 
@@ -55,6 +56,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16.0),
                       onTap: () {
+                        // Navigate to subcategories screen with provided category id
                         Navigator.push(
                           context,
                           MaterialPageRoute(
