@@ -15,7 +15,8 @@ class LegalCaseModel {
     return LegalCaseModel(
       id: json['id'],
       subcategoryId: json['subcategory_id'],
-      name: json['name'] ?? '',
+      // Support title column from Supabase table schema
+      name: json['name'] ?? json['title'] ?? '',
       description: json['description'],
     );
   }
