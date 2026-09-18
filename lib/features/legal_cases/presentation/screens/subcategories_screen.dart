@@ -1,32 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/injection_container.dart';
+import '../../domain/entities/category_entity.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
-import 'subcategories_screen.dart';
+import 'legal_cases_screen.dart';
 
-class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({super.key});
+class SubcategoriesScreen extends StatelessWidget {
+  final CategoryEntity category;
 
-  @override
-  State<CategoriesScreen> createState() => _CategoriesScreenState();
-}
-
-class _CategoriesScreenState extends State<CategoriesScreen> {
-  @override
-  void initState() {
-    super.initState();
-    context.read<LegalCubit>().fetchCategories();
-  }
+  const SubcategoriesScreen({
+    super.key,
+    required this.category,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text(
-          'دليل المحاماة - التصنيفات الرئيسية',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        title: Text(
+          category.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
         elevation: 0,
@@ -35,23 +30,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         builder: (context, state) {
           if (state is LegalLoading) {
             return const Center(child: CircularProgressIndicator());
-          } else if (state is CategoriesLoaded) {
-            final categories = state.categories;
-            if (categories.isEmpty) {
-              return const Center(child: Text('لا توجد تصنيفات مضافة حالياً'));
+          } else if (state is SubcategoriesLoaded) {
+            final subcategories = state.subcategories;
+            if (subcategories.isEmpty) {
+              return const Center(child: Text('لا توجد أقسام فرعية مضافة'));
             }
             return ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-              itemCount: categories.length,
+              itemCount: subcategories.length,
               itemBuilder: (context, index) {
-                final category = categories[index];
+                final subcategory = subcategories[index];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16.0),
                   child: Material(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16.0),
                     elevation: 2,
-                    shadowColor: Colors.black26,
+                    shadowColor: Colors.black.withOpacity(0.08),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16.0),
                       onTap: () {
@@ -59,14 +54,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => BlocProvider(
-                              create: (_) => sl<LegalCubit>()..fetchSubcategories(category.id),
-                              child: SubcategoriesScreen(category: category),
+                              create: (_) => sl<LegalCubit>()..fetchLegalCases(subcategory.id),
+                              child: LegalCasesScreen(subcategory: subcategory),
                             ),
                           ),
                         );
                       },
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 22.0, horizontal: 20.0),
+                        padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
                         child: Row(
                           children: [
                             const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.grey),
@@ -74,10 +69,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             Expanded(
                               flex: 8,
                               child: Text(
-                                category.name,
+                                subcategory.name,
                                 textAlign: TextAlign.right,
                                 style: const TextStyle(
-                                  fontSize: 18.0,
+                                  fontSize: 17.0,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF1E293B),
                                 ),
@@ -87,12 +82,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor.withAlpha(25),
+                                color: Colors.amber.shade50,
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                Icons.gavel_rounded,
-                                color: Theme.of(context).primaryColor,
+                                Icons.folder_open_rounded,
+                                color: Colors.amber.shade800,
                                 size: 24,
                               ),
                             ),
