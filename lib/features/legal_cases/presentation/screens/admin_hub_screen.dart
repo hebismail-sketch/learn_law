@@ -291,13 +291,26 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-      appBar: AppBar(
+           appBar: AppBar(
         title: const Text(
           'لوحة إدارة القضايا والمسارات',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
+        actions: [
+          // Sign out button
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'تسجيل الخروج',
+            onPressed: () async {
+              await _supabase.auth.signOut();
+              if (!context.mounted) return;
+              Navigator.pop(context);
+            },
+          ),
+        ],
       ),
+
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -426,7 +439,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                             margin: const EdgeInsets.only(bottom: 14),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.slate[50] ?? const Color(0xFFF8FAFC),
+                              color: const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.blue.shade100),
                             ),

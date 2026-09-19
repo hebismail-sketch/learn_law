@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/injection_container.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
 import 'subcategories_screen.dart';
 import 'admin_hub_screen.dart';
+import 'admin_login_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -14,6 +17,10 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
+  // Secret tap counter and timer to enter admin mode
+  int _secretTapCount = 0;
+  Timer? _secretTapTimer;
+
   @override
   void initState() {
     super.initState();
@@ -22,35 +29,63 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   @override
+  void dispose() {
+    _secretTapTimer?.cancel();
+    super.dispose();
+  }
+
+  // Handle secret 5-tap sequence on app bar title
+  void _handleSecretTap() {
+    _secretTapTimer?.cancel();
+    _secretTapCount++;
+
+    // Reset counter if taps stop for more than 2 seconds
+    _secretTapTimer = Timer(const Duration(seconds: 2), () {
+      _secretTapCount = 0;
+    });
+
+    // Check if 5 consecutive taps reached
+    if (_secretTapCount >= 5) {
+      _secretTapCount = 0;
+      _secretTapTimer?.cancel();
+      _openAdminGate();
+    }
+  }
+
+  // Navigate to Admin Login or directly to Admin Hub if already authenticated
+  Future<void> _openAdminGate() async {
+    final currentSession = Supabase.instance.client.auth.currentSession;
+    final targetScreen = (currentSession != null)
+        ? const AdminHubScreen()
+        : const AdminLoginScreen();
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => targetScreen),
+    );
+
+    // Refresh categories when returning from admin
+    if (mounted) {
+      context.read<LegalCubit>().fetchCategories();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text(
-          'دليل المحاماة - التصنيفات الرئيسية',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        // Secret tap gesture on the title
+        title: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _handleSecretTap,
+          child: const Text(
+            'دليل المحاماة - التصنيفات الرئيسية',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
         ),
         centerTitle: true,
         elevation: 0,
-        actions: [
-          // Admin panel action button
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings_rounded),
-            tooltip: 'لوحة إدارة القضايا',
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AdminHubScreen(),
-                ),
-              );
-              // Refresh categories upon return
-              if (mounted) {
-                context.read<LegalCubit>().fetchCategories();
-              }
-            },
-          ),
-        ],
       ),
       body: BlocBuilder<LegalCubit, LegalState>(
         builder: (context, state) {
@@ -68,60 +103,51 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 final category = categories[index];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16.0),
-                  child: Material(
+                  decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16.0),
-                    elevation: 2,
-                    shadowColor: Colors.black26,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16.0),
-                      onTap: () {
-                        // Navigate to subcategories screen with provided category id
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => BlocProvider(
-                              create: (_) => sl<LegalCubit>()..fetchSubcategories(category.id),
-                              child: SubcategoriesScreen(category: category),
-                            ),
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 22.0, horizontal: 20.0),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.grey),
-                            const Spacer(),
-                            Expanded(
-                              flex: 8,
-                              child: Text(
-                                category.name,
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  fontSize: 18.0,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor.withAlpha(25),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.gavel_rounded,
-                                color: Theme.of(context).primaryColor,
-                                size: 24,
-                              ),
-                            ),
-                          ],
-                        ),
+                    borderRadius: BorderRadius.circular(12.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                    trailing: const Icon(
+                      Icons.folder_open_rounded,
+                      color: Color(0xFF1E3A8A),
+                      size: 28,
+                    ),
+                    leading: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                      color: Colors.grey,
+                    ),
+                    title: Text(
+                      category.name,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F2937),
                       ),
                     ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BlocProvider(
+                            create: (_) => sl<LegalCubit>(),
+                            child: SubcategoriesScreen(
+                              category: category,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
               },
@@ -129,9 +155,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           } else if (state is LegalError) {
             return Center(
               child: Text(
-                'حدث خطأ: ${state.message}',
-                style: const TextStyle(color: Colors.red, fontSize: 16.0),
-                textAlign: TextAlign.center,
+                state.message,
+                style: const TextStyle(color: Colors.red),
               ),
             );
           }
