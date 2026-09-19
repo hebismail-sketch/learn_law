@@ -4,6 +4,7 @@ import '../../../../core/injection_container.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
 import 'subcategories_screen.dart';
+import 'admin_hub_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -31,6 +32,25 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          // Admin panel action button
+          IconButton(
+            icon: const Icon(Icons.admin_panel_settings_rounded),
+            tooltip: 'لوحة إدارة القضايا',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AdminHubScreen(),
+                ),
+              );
+              // Refresh categories upon return
+              if (mounted) {
+                context.read<LegalCubit>().fetchCategories();
+              }
+            },
+          ),
+        ],
       ),
       body: BlocBuilder<LegalCubit, LegalState>(
         builder: (context, state) {
