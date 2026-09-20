@@ -25,15 +25,6 @@ class LegalCasesScreen extends StatelessWidget {
         ),
         centerTitle: true,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'تحديث القضايا',
-            onPressed: () {
-              context.read<LegalCubit>().fetchLegalCases(subcategory.id);
-            },
-          ),
-        ],
       ),
       body: BlocBuilder<LegalCubit, LegalState>(
         builder: (context, state) {

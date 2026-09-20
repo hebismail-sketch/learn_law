@@ -298,6 +298,17 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         ),
         centerTitle: true,
         actions: [
+          // Refresh legal app content cache button
+          IconButton(
+            icon: const Icon(Icons.sync_rounded),
+            tooltip: 'تحديث بيانات التطبيق',
+            onPressed: () async {
+              await _fetchCategories();
+              if (mounted) {
+                _showSnackBar('تم تحديث البيانات بنجاح 🔄');
+              }
+            },
+          ),
           // Sign out button
           IconButton(
             icon: const Icon(Icons.logout_rounded),

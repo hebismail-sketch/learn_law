@@ -90,15 +90,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ),
         centerTitle: true,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'تحديث التصنيفات',
-            onPressed: () {
-              context.read<LegalCubit>().fetchCategories();
-            },
-          ),
-        ],
       ),
       body: BlocBuilder<LegalCubit, LegalState>(
         builder: (context, state) {

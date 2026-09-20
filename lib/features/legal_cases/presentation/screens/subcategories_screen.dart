@@ -25,15 +25,6 @@ class SubcategoriesScreen extends StatelessWidget {
         ),
         centerTitle: true,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'تحديث الأقسام الفرعية',
-            onPressed: () {
-              context.read<LegalCubit>().fetchSubcategories(category.id);
-            },
-          ),
-        ],
       ),
       body: BlocBuilder<LegalCubit, LegalState>(
         builder: (context, state) {
