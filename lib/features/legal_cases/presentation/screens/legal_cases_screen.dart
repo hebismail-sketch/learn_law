@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/injection_container.dart';
 import '../../domain/entities/subcategory_entity.dart';
+import '../../domain/entities/legal_case_entity.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
 import 'case_roadmap_screen.dart';
+import 'admin_edit_case_screen.dart';
 
 class LegalCasesScreen extends StatelessWidget {
   final SubcategoryEntity subcategory;
@@ -14,8 +17,71 @@ class LegalCasesScreen extends StatelessWidget {
     required this.subcategory,
   });
 
+  // Check if current user is the authorized administrator
+  bool _isAdmin() {
+    final user = Supabase.instance.client.auth.currentUser;
+    return user != null && user.email?.toLowerCase() == 'heba@gmail.com';
+  }
+
+  // Delete case and all associated steps with confirmation dialog
+  Future<void> _deleteCase(BuildContext context, LegalCaseEntity legalCase) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('تأكيد حذف القضية', textAlign: TextAlign.right),
+        content: Text(
+          'هل أنت متأكد من حذف قضية "${legalCase.name}" وجميع خطواتها نهائياً؟',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('حذف نهائي', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      // 1. Delete associated steps first
+      await supabase.from('case_steps').delete().eq('case_id', legalCase.id);
+      // 2. Delete the legal case
+      await supabase.from('legal_cases').delete().eq('id', legalCase.id);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حذف القضية بنجاح 🗑️', textAlign: TextAlign.right),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh the legal cases list
+        context.read<LegalCubit>().fetchLegalCases(subcategory.id);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء الحذف: $e', textAlign: TextAlign.right),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isAdminUser = _isAdmin();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
@@ -62,11 +128,37 @@ class LegalCasesScreen extends StatelessWidget {
                         );
                       },
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),
+                        padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
                         child: Row(
                           children: [
-                            const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.grey),
+                            // Show admin action buttons only to the authorized admin
+                            if (isAdminUser) ...[
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                                tooltip: 'حذف القضية',
+                                onPressed: () => _deleteCase(context, legalCase),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit_note_rounded, color: Colors.blue),
+                                tooltip: 'تعديل القضية وخطواتها',
+                                onPressed: () async {
+                                  final updated = await Navigator.push<bool>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => AdminEditCaseScreen(legalCase: legalCase),
+                                    ),
+                                  );
+                                  if (updated == true && context.mounted) {
+                                    context.read<LegalCubit>().fetchLegalCases(subcategory.id);
+                                  }
+                                },
+                              ),
+                            ] else
+                              const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.grey),
+
                             const Spacer(),
+
+                            // Case title and short description
                             Expanded(
                               flex: 8,
                               child: Column(
