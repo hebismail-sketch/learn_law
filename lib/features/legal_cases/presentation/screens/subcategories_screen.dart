@@ -25,6 +25,15 @@ class SubcategoriesScreen extends StatelessWidget {
         ),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'تحديث الأقسام الفرعية',
+            onPressed: () {
+              context.read<LegalCubit>().fetchSubcategories(category.id);
+            },
+          ),
+        ],
       ),
       body: BlocBuilder<LegalCubit, LegalState>(
         builder: (context, state) {
@@ -49,9 +58,9 @@ class SubcategoriesScreen extends StatelessWidget {
                     shadowColor: Colors.black.withOpacity(0.08),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16.0),
-                      onTap: () {
+                      onTap: () async {
                         // Navigate to legal cases screen and fetch associated cases
-                        Navigator.push(
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => BlocProvider(
@@ -60,6 +69,10 @@ class SubcategoriesScreen extends StatelessWidget {
                             ),
                           ),
                         );
+                        // Refresh subcategories when returning
+                        if (context.mounted) {
+                          context.read<LegalCubit>().fetchSubcategories(category.id);
+                        }
                       },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 20.0),

@@ -90,6 +90,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'تحديث التصنيفات',
+            onPressed: () {
+              context.read<LegalCubit>().fetchCategories();
+            },
+          ),
+        ],
       ),
       body: BlocBuilder<LegalCubit, LegalState>(
         builder: (context, state) {
@@ -144,7 +153,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => BlocProvider(
-                            create: (_) => sl<LegalCubit>(),
+                            create: (_) => sl<LegalCubit>()..fetchSubcategories(category.id),
                             child: SubcategoriesScreen(
                               category: category,
                             ),
