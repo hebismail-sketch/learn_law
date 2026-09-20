@@ -19,6 +19,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
+  // Dedicated authorized admin email whitelist
+  static const String _authorizedAdminEmail = 'heba@gmail.com';
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -26,30 +29,48 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     super.dispose();
   }
 
-  // Authenticate admin using Supabase credentials
+  // Authenticate admin using Supabase credentials with email whitelist verification
   Future<void> _handleAdminLogin() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Enforce admin email authorization check
+    if (email.toLowerCase() != _authorizedAdminEmail.toLowerCase()) {
+      _showErrorSnackBar('هذا الحساب غير مصرح له بالدخول كمسؤول نهائياً');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text.trim();
-
       // Sign in with email and password
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (response.user != null && mounted) {
-        // Navigate to AdminHubScreen and remove login screen from back stack
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const AdminHubScreen(),
-          ),
-        );
+      // Verify that the authenticated user's email matches the authorized admin email
+      if (response.user != null) {
+        if (response.user!.email?.toLowerCase() != _authorizedAdminEmail.toLowerCase()) {
+          // Immediately sign out unauthorized users
+          await _supabase.auth.signOut();
+          if (mounted) {
+            _showErrorSnackBar('غير مصرح لك بالوصول إلى لوحة التحكم');
+          }
+          return;
+        }
+
+        if (mounted) {
+          // Navigate to AdminHubScreen and remove login screen from back stack
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AdminHubScreen(),
+            ),
+          );
+        }
       }
     } on AuthException catch (e) {
       if (mounted) {

@@ -52,10 +52,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
-  // Navigate to Admin Login or directly to Admin Hub if already authenticated
+  // Navigate to Admin Login or directly to Admin Hub if already authenticated as the authorized admin
   Future<void> _openAdminGate() async {
-    final currentSession = Supabase.instance.client.auth.currentSession;
-    final targetScreen = (currentSession != null)
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    // Check if user is currently logged in AND matches the designated admin email
+    final isAuthorizedAdmin = currentUser != null &&
+        currentUser.email?.toLowerCase() == 'heba@gmail.com';
+
+    final targetScreen = isAuthorizedAdmin
         ? const AdminHubScreen()
         : const AdminLoginScreen();
 
