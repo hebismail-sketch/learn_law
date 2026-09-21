@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../domain/entities/case_step_entity.dart';
+import '../../domain/entities/step_branch.dart';
 
-class StepDetailScreen extends StatelessWidget {
+class StepDetailScreen extends StatefulWidget {
   final String caseName;
   final CaseStepEntity step;
 
@@ -12,7 +13,17 @@ class StepDetailScreen extends StatelessWidget {
   });
 
   @override
+  State<StepDetailScreen> createState() => _StepDetailScreenState();
+}
+
+class _StepDetailScreenState extends State<StepDetailScreen> {
+  int _selectedBranchIndex = 0;
+
+  @override
   Widget build(BuildContext context) {
+    final step = widget.step;
+    final hasBranches = step.branches.isNotEmpty;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
@@ -57,7 +68,7 @@ class StepDetailScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      caseName,
+                      widget.caseName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -91,13 +102,78 @@ class StepDetailScreen extends StatelessWidget {
 
             // Render operational procedures and description card
             _DetailSectionCard(
-              title: 'الإجراءات العملية والشرح',
+              title: 'الإجراءات العامة للمرحلة',
               icon: Icons.assignment_outlined,
               iconColor: Colors.blue,
               content: step.shortDescription.isNotEmpty
                   ? step.shortDescription
-                  : 'تتضمن هذه المرحلة بدء دراسة شروط الدعوى ومقابلة الموكل واستيفاء كافة الشروط القانونية المنصوص عليها قانوناً للبدء في الإجراءات القضائية.',
+                  : 'تتضمن هذه المرحلة استيفاء الشروط القانونية ومتابعة الإجراءات المقررة نظاماً.',
             ),
+
+            // Render Dynamic Branches section if present
+            if (hasBranches) ...[
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  const Text(
+                    'المسارات والسيناريوهات المتفرعة',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(Icons.alt_route_rounded, color: Colors.amber.shade800, size: 22),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Branch selector chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: Row(
+                  children: List.generate(step.branches.length, (index) {
+                    final branch = step.branches[index];
+                    final isSelected = _selectedBranchIndex == index;
+
+                    Color chipColor = const Color(0xFF1E3A8A);
+                    if (branch.title.contains('قبول')) {
+                      chipColor = Colors.green.shade700;
+                    } else if (branch.title.contains('رفض')) {
+                      chipColor = Colors.red.shade700;
+                    } else if (branch.title.contains('استئناف') || branch.title.contains('طعن')) {
+                      chipColor = Colors.amber.shade800;
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: ChoiceChip(
+                        label: Text(
+                          branch.title,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: chipColor,
+                        backgroundColor: Colors.white,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() => _selectedBranchIndex = index);
+                          }
+                        },
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 14),
+              // Selected Branch Content card
+              _buildBranchCard(step.branches[_selectedBranchIndex]),
+            ],
 
             const SizedBox(height: 16),
 
@@ -111,6 +187,81 @@ class StepDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBranchCard(StepBranch branch) {
+    Color headerColor = const Color(0xFF1E3A8A);
+    if (branch.title.contains('قبول')) {
+      headerColor = Colors.green.shade700;
+    } else if (branch.title.contains('رفض')) {
+      headerColor = Colors.red.shade700;
+    } else if (branch.title.contains('استئناف') || branch.title.contains('طعن')) {
+      headerColor = Colors.amber.shade800;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: headerColor.withOpacity(0.3), width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: headerColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  branch.title,
+                  style: TextStyle(
+                    color: headerColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const Text(
+                    'تفاصيل وإجراءات المسار',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.call_split_rounded, color: headerColor, size: 20),
+                ],
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+          Text(
+            branch.description.isNotEmpty
+                ? branch.description
+                : 'لم يتم تحديد خطوات تفصيلية لهذا المسار.',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 14.5,
+              height: 1.7,
+              color: Color(0xFF334155),
+            ),
+          ),
+        ],
       ),
     );
   }

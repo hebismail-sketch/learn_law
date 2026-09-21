@@ -51,6 +51,7 @@ class LegalRepositoryImpl implements LegalRepository {
       stepNumber: model.stepNumber,
       title: model.title,
       shortDescription: model.shortDescription,
+      branches: model.branches,
     )).toList();
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -237,15 +238,38 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       // 2. Prepare steps payload
       final List<Map<String, dynamic>> stepsPayload = [];
       for (int i = 0; i < _stepInputs.length; i++) {
-        final stepTitle = _stepInputs[i].titleController.text.trim();
-        final stepDesc = _stepInputs[i].descController.text.trim();
+        final stepInput = _stepInputs[i];
+        final stepTitle = stepInput.titleController.text.trim();
+        final stepDesc = stepInput.descController.text.trim();
 
         if (stepTitle.isNotEmpty) {
+          String finalDescription = stepDesc;
+
+          // If step has branches, encode them in description with JSON prefix
+          if (stepInput.branches.isNotEmpty) {
+            final validBranches = stepInput.branches
+                .where((b) => b.titleController.text.trim().isNotEmpty)
+                .map((b) => {
+                      'title': b.titleController.text.trim(),
+                      'description': b.descController.text.trim(),
+                      'sub_steps': <String>[],
+                    })
+                .toList();
+
+            if (validBranches.isNotEmpty) {
+              final payload = {
+                'main_description': stepDesc,
+                'branches': validBranches,
+              };
+              finalDescription = '__BRANCHES_JSON__' + jsonEncode(payload);
+            }
+          }
+
           stepsPayload.add({
             'case_id': caseId,
             'step_number': i + 1,
             'title': stepTitle,
-            'short_description': stepDesc,
+            'short_description': finalDescription,
           });
         }
       }
@@ -498,6 +522,138 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                                     border: OutlineInputBorder(),
                                   ),
                                 ),
+                                const SizedBox(height: 12),
+                                // Dynamic Branches section
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50.withOpacity(0.5),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.amber.shade200),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          PopupMenuButton<String>(
+                                            tooltip: 'إضافة مسار متفرع',
+                                            icon: const Icon(Icons.alt_route_rounded, color: Colors.amber),
+                                            onSelected: (val) {
+                                              setState(() {
+                                                step.addBranch(defaultTitle: val);
+                                              });
+                                            },
+                                            itemBuilder: (ctx) => [
+                                              const PopupMenuItem(
+                                                value: 'في حالة القبول',
+                                                child: Text('🟢 في حالة القبول', textAlign: TextAlign.right),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'في حالة الرفض',
+                                                child: Text('🔴 في حالة الرفض', textAlign: TextAlign.right),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'في حالة الطعن / الاستئناف',
+                                                child: Text('🟡 في حالة الطعن / الاستئناف', textAlign: TextAlign.right),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'مسار مخصص آخر',
+                                                child: Text('⚪ مسار مخصص آخر', textAlign: TextAlign.right),
+                                              ),
+                                            ],
+                                          ),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                'المسارات المتفرعة (${step.branches.length})',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Icon(Icons.call_split_rounded, size: 18, color: Colors.amber.shade800),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      if (step.branches.isEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                          child: Text(
+                                            'لا توجد مسارات متفرعة (اختياري: اضغط على أيقونة التفرع لإضافة مسار كسب/خسارة أو استئناف)',
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                          ),
+                                        )
+                                      else
+                                        ...List.generate(step.branches.length, (bIndex) {
+                                          final branch = step.branches[bIndex];
+                                          return Container(
+                                            margin: const EdgeInsets.only(top: 8),
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.amber.shade300),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    IconButton(
+                                                      icon: const Icon(Icons.close, color: Colors.red, size: 18),
+                                                      onPressed: () {
+                                                        setState(() {
+                                                          step.removeBranch(bIndex);
+                                                        });
+                                                      },
+                                                      tooltip: 'حذف المسار',
+                                                    ),
+                                                    Expanded(
+                                                      child: TextField(
+                                                        controller: branch.titleController,
+                                                        textAlign: TextAlign.right,
+                                                        decoration: InputDecoration(
+                                                          labelText: 'اسم المسار المتفرع ${bIndex + 1}',
+                                                          hintText: 'مثال: في حالة القبول أو في حالة الرفض',
+                                                          isDense: true,
+                                                          border: const OutlineInputBorder(),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 6),
+                                                TextField(
+                                                  controller: branch.descController,
+                                                  textAlign: TextAlign.right,
+                                                  maxLines: 2,
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'إجراءات وخطوات هذا المسار',
+                                                    isDense: true,
+                                                    border: OutlineInputBorder(),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                      TextButton.icon(
+                                        onPressed: () {
+                                          setState(() {
+                                            step.addBranch();
+                                          });
+                                        },
+                                        icon: const Icon(Icons.add, size: 16),
+                                        label: const Text('إضافة مسار متفرع آخر', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           );
@@ -600,6 +756,34 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 class _StepInputData {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController descController = TextEditingController();
+  final List<_BranchInputData> branches = [];
+
+  void addBranch({String? defaultTitle}) {
+    branches.add(_BranchInputData(defaultTitle: defaultTitle));
+  }
+
+  void removeBranch(int index) {
+    if (index >= 0 && index < branches.length) {
+      final b = branches.removeAt(index);
+      b.dispose();
+    }
+  }
+
+  void dispose() {
+    titleController.dispose();
+    descController.dispose();
+    for (final b in branches) {
+      b.dispose();
+    }
+  }
+}
+
+class _BranchInputData {
+  final TextEditingController titleController;
+  final TextEditingController descController = TextEditingController();
+
+  _BranchInputData({String? defaultTitle})
+      : titleController = TextEditingController(text: defaultTitle ?? '');
 
   void dispose() {
     titleController.dispose();

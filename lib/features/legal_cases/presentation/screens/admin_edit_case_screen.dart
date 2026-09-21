@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/legal_case_entity.dart';
@@ -49,8 +50,30 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
           .eq('case_id', widget.legalCase.id)
           .order('step_number', ascending: true);
 
+      final rawList = List<Map<String, dynamic>>.from(response);
+
+      // Parse branches if encoded in short_description
+      for (final step in rawList) {
+        String rawDesc = step['short_description'] ?? '';
+        List<Map<String, dynamic>> branches = [];
+
+        if (rawDesc.startsWith('__BRANCHES_JSON__')) {
+          try {
+            final jsonStr = rawDesc.replaceFirst('__BRANCHES_JSON__', '');
+            final Map<String, dynamic> data = jsonDecode(jsonStr);
+            rawDesc = data['main_description'] ?? '';
+            final list = data['branches'] as List<dynamic>?;
+            if (list != null) {
+              branches = list.map((b) => Map<String, dynamic>.from(b)).toList();
+            }
+          } catch (_) {}
+        }
+        step['short_description'] = rawDesc;
+        step['branches'] = branches;
+      }
+
       setState(() {
-        _steps = List<Map<String, dynamic>>.from(response);
+        _steps = rawList;
         _isLoading = false;
       });
     } catch (e) {
@@ -78,9 +101,26 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
       // 2. Update each step
       for (final step in _steps) {
         if (step['id'] != null) {
+          String finalDesc = step['short_description'] ?? '';
+          final branches = step['branches'] as List<dynamic>?;
+
+          if (branches != null && branches.isNotEmpty) {
+            final validBranches = branches
+                .where((b) => (b['title'] ?? '').toString().trim().isNotEmpty)
+                .toList();
+
+            if (validBranches.isNotEmpty) {
+              final payload = {
+                'main_description': finalDesc,
+                'branches': validBranches,
+              };
+              finalDesc = '__BRANCHES_JSON__' + jsonEncode(payload);
+            }
+          }
+
           await _supabase.from('case_steps').update({
             'title': step['title'] ?? '',
-            'short_description': step['short_description'] ?? '',
+            'short_description': finalDesc,
           }).eq('id', step['id']);
         }
       }
@@ -96,57 +136,172 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     }
   }
 
-  // Show edit dialog for a single step
+  // Show edit dialog for a single step with branches support
   void _editStepDialog(int index) {
     final step = _steps[index];
     final stepTitleCtrl = TextEditingController(text: step['title'] ?? '');
     final stepDescCtrl = TextEditingController(text: step['short_description'] ?? '');
 
+    // Clone branches for dialog
+    final existingBranches = (step['branches'] as List<dynamic>?) ?? [];
+    final List<Map<String, TextEditingController>> branchControllers = existingBranches.map((b) {
+      return {
+        'title': TextEditingController(text: b['title'] ?? ''),
+        'description': TextEditingController(text: b['description'] ?? ''),
+      };
+    }).toList();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('تعديل الخطوة رقم (${index + 1})', textAlign: TextAlign.right),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: stepTitleCtrl,
-                textAlign: TextAlign.right,
-                decoration: const InputDecoration(
-                  labelText: 'عنوان الخطوة',
-                  border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          return AlertDialog(
+            title: Text('تعديل الخطوة رقم (${index + 1})', textAlign: TextAlign.right),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: stepTitleCtrl,
+                      textAlign: TextAlign.right,
+                      decoration: const InputDecoration(
+                        labelText: 'عنوان الخطوة الرئيسي',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: stepDescCtrl,
+                      textAlign: TextAlign.right,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'تفاصيل وشرح الخطوة',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        PopupMenuButton<String>(
+                          tooltip: 'إضافة مسار متفرع',
+                          icon: const Icon(Icons.alt_route_rounded, color: Colors.amber),
+                          onSelected: (val) {
+                            setDialogState(() {
+                              branchControllers.add({
+                                'title': TextEditingController(text: val),
+                                'description': TextEditingController(),
+                              });
+                            });
+                          },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'في حالة القبول',
+                              child: Text('🟢 في حالة القبول', textAlign: TextAlign.right),
+                            ),
+                            const PopupMenuItem(
+                              value: 'في حالة الرفض',
+                              child: Text('🔴 في حالة الرفض', textAlign: TextAlign.right),
+                            ),
+                            const PopupMenuItem(
+                              value: 'في حالة الاستئناف / الطعن',
+                              child: Text('🟡 في حالة الاستئناف / الطعن', textAlign: TextAlign.right),
+                            ),
+                            const PopupMenuItem(
+                              value: 'مسار مخصص آخر',
+                              child: Text('⚪ مسار مخصص آخر', textAlign: TextAlign.right),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'المسارات المتفرعة (${branchControllers.length})',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                        ),
+                      ],
+                    ),
+                    ...List.generate(branchControllers.length, (bIdx) {
+                      final bCtrl = branchControllers[bIdx];
+                      return Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.red, size: 18),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      branchControllers.removeAt(bIdx);
+                                    });
+                                  },
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: bCtrl['title'],
+                                    textAlign: TextAlign.right,
+                                    decoration: InputDecoration(
+                                      labelText: 'اسم المسار ${bIdx + 1}',
+                                      isDense: true,
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: bCtrl['description'],
+                              textAlign: TextAlign.right,
+                              maxLines: 2,
+                              decoration: const InputDecoration(
+                                labelText: 'خطوات وإجراءات هذا المسار',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: stepDescCtrl,
-                textAlign: TextAlign.right,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'تفاصيل الخطوة',
-                  border: OutlineInputBorder(),
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('إلغاء'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _steps[index]['title'] = stepTitleCtrl.text.trim();
+                    _steps[index]['short_description'] = stepDescCtrl.text.trim();
+                    _steps[index]['branches'] = branchControllers
+                        .where((b) => b['title']!.text.trim().isNotEmpty)
+                        .map((b) => {
+                              'title': b['title']!.text.trim(),
+                              'description': b['description']!.text.trim(),
+                              'sub_steps': <String>[],
+                            })
+                        .toList();
+                  });
+                  Navigator.pop(dialogCtx);
+                },
+                child: const Text('حفظ محلياً'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _steps[index]['title'] = stepTitleCtrl.text.trim();
-                _steps[index]['short_description'] = stepDescCtrl.text.trim();
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('حفظ محلياً'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -254,11 +409,29 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                   textAlign: TextAlign.right,
                                   style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
-                                subtitle: Text(
-                                  step['short_description'] ?? '',
-                                  textAlign: TextAlign.right,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    if ((step['short_description'] ?? '').toString().isNotEmpty)
+                                      Text(
+                                        step['short_description'] ?? '',
+                                        textAlign: TextAlign.right,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    if (((step['branches'] as List<dynamic>?) ?? []).isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4.0),
+                                        child: Text(
+                                          '🌿 يتفرع منها ${((step['branches'] as List<dynamic>?) ?? []).length} مسار(ات)',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.amber.shade900,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 trailing: CircleAvatar(
                                   radius: 14,

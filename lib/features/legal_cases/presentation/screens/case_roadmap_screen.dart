@@ -217,6 +217,32 @@ class _RoadmapStepNode extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (step.branches.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'يتفرع إلى ${step.branches.length} مسار(ات) (قبول/رفض)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(Icons.alt_route_rounded, size: 14, color: Colors.amber.shade800),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
