@@ -178,7 +178,10 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               ),
             ],
           ),
-          child: ListTile(
+          clipBehavior: Clip.antiAlias,
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             leading: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.grey),
             trailing: Container(
@@ -234,6 +237,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                 ),
               );
             },
+          ),
           ),
         );
       },

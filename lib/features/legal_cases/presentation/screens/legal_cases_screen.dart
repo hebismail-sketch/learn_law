@@ -156,11 +156,10 @@ class LegalCasesScreen extends StatelessWidget {
                             ] else
                               const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.grey),
 
-                            const Spacer(),
+                            const SizedBox(width: 8),
 
                             // Case title and short description
                             Expanded(
-                              flex: 8,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
