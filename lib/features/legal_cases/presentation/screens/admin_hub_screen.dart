@@ -1,6 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../widgets/roadmap_editor.dart';
 
 class AdminHubScreen extends StatefulWidget {
   const AdminHubScreen({super.key});
@@ -25,7 +26,8 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   final _caseDescController = TextEditingController();
 
   // Dynamic step inputs
-  final List<_StepInputData> _stepInputs = [];
+  final List<StepInputData> _stepInputs = [];
+  final GlobalKey _previewKey = GlobalKey();
 
   @override
   void initState() {
@@ -47,14 +49,17 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   void _addStep() {
     setState(() {
-      _stepInputs.add(_StepInputData());
+      _stepInputs.add(StepInputData());
     });
   }
 
   void _removeStep(int index) {
-    if (_stepInputs.length > 1) {
+    if (_stepInputs.length > 1 && index >= 0 && index < _stepInputs.length) {
+      final removed = _stepInputs[index];
       setState(() {
-        final removed = _stepInputs.removeAt(index);
+        _stepInputs.removeAt(index);
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         removed.dispose();
       });
     }
@@ -65,16 +70,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await _supabase.from('categories').select().order('name');
+      if (!mounted) return;
       setState(() {
         _categories = List<Map<String, dynamic>>.from(response);
         if (_categories.isNotEmpty) {
           _selectedCategoryId = _categories.first['id'];
           _fetchSubcategories(_selectedCategoryId!);
         } else {
+          _selectedCategoryId = null;
+          _selectedSubcategoryId = null;
+          _subcategories = [];
           _isLoading = false;
         }
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       _showSnackBar('Error loading categories: $e', isError: true);
     }
@@ -88,6 +98,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           .select()
           .eq('category_id', categoryId)
           .order('name');
+      if (!mounted) return;
       setState(() {
         _subcategories = List<Map<String, dynamic>>.from(response);
         _selectedSubcategoryId =
@@ -95,6 +106,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       _showSnackBar('Error loading subcategories: $e', isError: true);
     }
@@ -243,33 +255,14 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         final stepDesc = stepInput.descController.text.trim();
 
         if (stepTitle.isNotEmpty) {
-          String finalDescription = stepDesc;
-
-          // If step has branches, encode them in description with JSON prefix
-          if (stepInput.branches.isNotEmpty) {
-            final validBranches = stepInput.branches
-                .where((b) => b.titleController.text.trim().isNotEmpty)
-                .map((b) => {
-                      'title': b.titleController.text.trim(),
-                      'description': b.descController.text.trim(),
-                      'sub_steps': <String>[],
-                    })
-                .toList();
-
-            if (validBranches.isNotEmpty) {
-              final payload = {
-                'main_description': stepDesc,
-                'branches': validBranches,
-              };
-              finalDescription = '__BRANCHES_JSON__' + jsonEncode(payload);
-            }
-          }
-
           stepsPayload.add({
             'case_id': caseId,
             'step_number': i + 1,
             'title': stepTitle,
-            'short_description': finalDescription,
+            'short_description': encodeStepDescription(
+              description: stepDesc,
+              branches: stepInput.branches,
+            ),
           });
         }
       }
@@ -282,23 +275,29 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       setState(() => _isSaving = false);
       _showSnackBar('تم حفظ ونشر القضية وكافة خطواتها بنجاح! 🎉');
 
-      // Clear inputs
+      // Clear inputs safely
       _caseTitleController.clear();
       _caseDescController.clear();
+      final oldInputs = List<StepInputData>.from(_stepInputs);
       setState(() {
-        for (final s in _stepInputs) {
-          s.dispose();
-        }
         _stepInputs.clear();
         _addStep();
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final s in oldInputs) {
+          s.dispose();
+        }
+      });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isSaving = false);
       _showSnackBar('حدث خطأ أثناء الحفظ: $e', isError: true);
     }
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -340,7 +339,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             onPressed: () async {
               await _supabase.auth.signOut();
               if (!context.mounted) return;
-              Navigator.pop(context);
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              }
             },
           ),
         ],
@@ -369,7 +370,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                             ),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _selectedCategoryId,
+                                value: _categories.any((cat) => cat['id'] == _selectedCategoryId)
+                                    ? _selectedCategoryId
+                                    : null,
                                 decoration: const InputDecoration(
                                   labelText: 'التصنيف الرئيسي',
                                   border: OutlineInputBorder(),
@@ -381,12 +384,17 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                                     child: Text(
                                       cat['name'] ?? '',
                                       textAlign: TextAlign.right,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   );
                                 }).toList(),
                                 onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() => _selectedCategoryId = val);
+                                  if (val != null && val != _selectedCategoryId) {
+                                    setState(() {
+                                      _selectedCategoryId = val;
+                                      _selectedSubcategoryId = null;
+                                      _subcategories = [];
+                                    });
                                     _fetchSubcategories(val);
                                   }
                                 },
@@ -404,7 +412,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                             ),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _selectedSubcategoryId,
+                                value: _subcategories.any((sub) => sub['id'] == _selectedSubcategoryId)
+                                    ? _selectedSubcategoryId
+                                    : null,
                                 decoration: const InputDecoration(
                                   labelText: 'القسم الفرعي',
                                   border: OutlineInputBorder(),
@@ -416,6 +426,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                                     child: Text(
                                       sub['name'] ?? '',
                                       textAlign: TextAlign.right,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   );
                                 }).toList(),
@@ -466,208 +477,23 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   _buildCard(
                     title: '3. خطوات خريطة طريق سير القضية',
                     icon: Icons.timeline_rounded,
-                    child: Column(
-                      children: [
-                        ...List.generate(_stepInputs.length, (index) {
-                          final step = _stepInputs[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 14),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.blue.shade100),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    if (_stepInputs.length > 1)
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline,
-                                            color: Colors.red),
-                                        onPressed: () => _removeStep(index),
-                                        tooltip: 'حذف الخطوة',
-                                      )
-                                    else
-                                      const SizedBox.shrink(),
-                                    Text(
-                                      'الخطوة رقم (${index + 1})',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue.shade800,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: step.titleController,
-                                  textAlign: TextAlign.right,
-                                  decoration: const InputDecoration(
-                                    labelText: 'عنوان الخطوة (مثال: مقابلة الموكل وتجهيز المستندات)',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: step.descController,
-                                  textAlign: TextAlign.right,
-                                  maxLines: 2,
-                                  decoration: const InputDecoration(
-                                    labelText: 'تفاصيل الخطوة، الشروط والأوراق المطلوبة',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                // Dynamic Branches section
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.shade50.withOpacity(0.5),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: Colors.amber.shade200),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          PopupMenuButton<String>(
-                                            tooltip: 'إضافة مسار متفرع',
-                                            icon: const Icon(Icons.alt_route_rounded, color: Colors.amber),
-                                            onSelected: (val) {
-                                              setState(() {
-                                                step.addBranch(defaultTitle: val);
-                                              });
-                                            },
-                                            itemBuilder: (ctx) => [
-                                              const PopupMenuItem(
-                                                value: 'في حالة القبول',
-                                                child: Text('🟢 في حالة القبول', textAlign: TextAlign.right),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'في حالة الرفض',
-                                                child: Text('🔴 في حالة الرفض', textAlign: TextAlign.right),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'في حالة الطعن / الاستئناف',
-                                                child: Text('🟡 في حالة الطعن / الاستئناف', textAlign: TextAlign.right),
-                                              ),
-                                              const PopupMenuItem(
-                                                value: 'مسار مخصص آخر',
-                                                child: Text('⚪ مسار مخصص آخر', textAlign: TextAlign.right),
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                'المسارات المتفرعة (${step.branches.length})',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13,
-                                                  color: Colors.amber.shade900,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Icon(Icons.call_split_rounded, size: 18, color: Colors.amber.shade800),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      if (step.branches.isEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                          child: Text(
-                                            'لا توجد مسارات متفرعة (اختياري: اضغط على أيقونة التفرع لإضافة مسار كسب/خسارة أو استئناف)',
-                                            textAlign: TextAlign.right,
-                                            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                                          ),
-                                        )
-                                      else
-                                        ...List.generate(step.branches.length, (bIndex) {
-                                          final branch = step.branches[bIndex];
-                                          return Container(
-                                            margin: const EdgeInsets.only(top: 8),
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: Colors.amber.shade300),
-                                            ),
-                                            child: Column(
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    IconButton(
-                                                      icon: const Icon(Icons.close, color: Colors.red, size: 18),
-                                                      onPressed: () {
-                                                        setState(() {
-                                                          step.removeBranch(bIndex);
-                                                        });
-                                                      },
-                                                      tooltip: 'حذف المسار',
-                                                    ),
-                                                    Expanded(
-                                                      child: TextField(
-                                                        controller: branch.titleController,
-                                                        textAlign: TextAlign.right,
-                                                        decoration: InputDecoration(
-                                                          labelText: 'اسم المسار المتفرع ${bIndex + 1}',
-                                                          hintText: 'مثال: في حالة القبول أو في حالة الرفض',
-                                                          isDense: true,
-                                                          border: const OutlineInputBorder(),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 6),
-                                                TextField(
-                                                  controller: branch.descController,
-                                                  textAlign: TextAlign.right,
-                                                  maxLines: 2,
-                                                  decoration: const InputDecoration(
-                                                    labelText: 'إجراءات وخطوات هذا المسار',
-                                                    isDense: true,
-                                                    border: OutlineInputBorder(),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }),
-                                      TextButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            step.addBranch();
-                                          });
-                                        },
-                                        icon: const Icon(Icons.add, size: 16),
-                                        label: const Text('إضافة مسار متفرع آخر', style: TextStyle(fontSize: 12)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
-                        OutlinedButton.icon(
-                          onPressed: _addStep,
-                          icon: const Icon(Icons.add),
-                          label: const Text('إضافة خطوة جديدة للمسار'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            minimumSize: const Size(double.infinity, 45),
-                          ),
-                        ),
-                      ],
+                    child: RoadmapEditor(
+                      steps: _stepInputs,
+                      onAddStep: _addStep,
+                      onRemoveStep: _removeStep,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Section: Live preview of the resulting roadmap shape
+                  _buildCard(
+                    title: '4. معاينة الشكل النهائي للخريطة',
+                    icon: Icons.visibility_rounded,
+                    child: KeyedSubtree(
+                      key: _previewKey,
+                      child: RoadmapPreview(steps: _stepInputs),
                     ),
                   ),
 
@@ -750,43 +576,5 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         ],
       ),
     );
-  }
-}
-
-class _StepInputData {
-  final TextEditingController titleController = TextEditingController();
-  final TextEditingController descController = TextEditingController();
-  final List<_BranchInputData> branches = [];
-
-  void addBranch({String? defaultTitle}) {
-    branches.add(_BranchInputData(defaultTitle: defaultTitle));
-  }
-
-  void removeBranch(int index) {
-    if (index >= 0 && index < branches.length) {
-      final b = branches.removeAt(index);
-      b.dispose();
-    }
-  }
-
-  void dispose() {
-    titleController.dispose();
-    descController.dispose();
-    for (final b in branches) {
-      b.dispose();
-    }
-  }
-}
-
-class _BranchInputData {
-  final TextEditingController titleController;
-  final TextEditingController descController = TextEditingController();
-
-  _BranchInputData({String? defaultTitle})
-      : titleController = TextEditingController(text: defaultTitle ?? '');
-
-  void dispose() {
-    titleController.dispose();
-    descController.dispose();
   }
 }

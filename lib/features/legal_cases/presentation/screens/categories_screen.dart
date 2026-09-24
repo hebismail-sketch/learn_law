@@ -163,30 +163,33 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             ),
                           ],
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-                          trailing: const Icon(
-                            Icons.folder_open_rounded,
-                            color: Color(0xFF1E3A8A),
-                            size: 28,
-                          ),
-                          leading: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            size: 18,
-                            color: Colors.grey,
-                          ),
-                          title: Text(
-                            category.name,
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 16.0,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1F2937),
+                        clipBehavior: Clip.antiAlias,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+                            trailing: const Icon(
+                              Icons.folder_open_rounded,
+                              color: Color(0xFF1E3A8A),
+                              size: 28,
                             ),
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
+                            leading: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18,
+                              color: Colors.grey,
+                            ),
+                            title: Text(
+                              category.name,
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 16.0,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1F2937),
+                              ),
+                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
                               MaterialPageRoute(
                                 builder: (_) => BlocProvider(
                                   create: (_) => sl<LegalCubit>()..fetchSubcategories(category.id),
@@ -197,6 +200,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                               ),
                             );
                           },
+                          ),
                         ),
                       );
                     },
