@@ -250,17 +250,68 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
             ],
           ),
           const Divider(height: 20),
-          Text(
-            branch.description.isNotEmpty
-                ? branch.description
-                : 'لم يتم تحديد خطوات تفصيلية لهذا المسار.',
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontSize: 14.5,
-              height: 1.7,
-              color: Color(0xFF334155),
+          if (branch.description.isNotEmpty) ...[
+            Text(
+              branch.description,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 14.5,
+                height: 1.7,
+                color: Color(0xFF334155),
+              ),
             ),
-          ),
+            const SizedBox(height: 14),
+          ],
+          if (branch.subSteps.isNotEmpty) ...[
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'المحطات والخطوات المتتالية لهذا المسار:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...List.generate(branch.subSteps.length, (sIdx) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: headerColor.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        branch.subSteps[sIdx],
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 13.5, color: Color(0xFF1E293B)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      radius: 12,
+                      backgroundColor: headerColor.withOpacity(0.15),
+                      child: Text(
+                        '${sIdx + 1}',
+                        style: TextStyle(color: headerColor, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ] else if (branch.description.isEmpty) ...[
+            const Text(
+              'لم يتم تحديد خطوات تفصيلية لهذا المسار.',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 14.5,
+                color: Color(0xFF334155),
+              ),
+            ),
+          ],
         ],
       ),
     );
