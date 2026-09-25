@@ -24,11 +24,17 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
     final step = widget.step;
     final hasBranches = step.branches.isNotEmpty;
 
+    // حماية من أي index خارج نطاق الفروع (يمنع RangeError وتوقف الشاشة).
+    final safeBranchIndex =
+        _selectedBranchIndex.clamp(0, step.branches.isEmpty ? 0 : step.branches.length - 1);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(
           'الخطوة ${step.stepNumber}: ${step.title}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         centerTitle: true,
@@ -69,6 +75,8 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
                     ),
                     child: Text(
                       widget.caseName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -172,7 +180,7 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
               ),
               const SizedBox(height: 14),
               // Selected Branch Content card
-              _buildBranchCard(step.branches[_selectedBranchIndex]),
+              _buildBranchCard(step.branches[safeBranchIndex]),
             ],
 
             const SizedBox(height: 16),
@@ -220,33 +228,39 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: headerColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: headerColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    branch.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: headerColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
                 child: Text(
-                  branch.title,
-                  style: TextStyle(
-                    color: headerColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
+                  'تفاصيل وإجراءات المسار',
+                  textAlign: TextAlign.left,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
               ),
-              Row(
-                children: [
-                  const Text(
-                    'تفاصيل وإجراءات المسار',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(Icons.call_split_rounded, color: headerColor, size: 20),
-                ],
-              ),
+              const SizedBox(width: 6),
+              Icon(Icons.call_split_rounded, color: headerColor, size: 20),
             ],
           ),
           const Divider(height: 20),

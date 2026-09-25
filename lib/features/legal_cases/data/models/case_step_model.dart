@@ -20,26 +20,45 @@ class CaseStepModel {
 
   factory CaseStepModel.fromJson(Map<String, dynamic> json) {
     List<StepBranch> parsedBranches = [];
-    String rawDesc = json['short_description'] ?? '';
+    final rawDesc = (json['short_description'] ?? '').toString();
 
     // Check if description encodes dynamic branches as JSON
     if (rawDesc.startsWith('__BRANCHES_JSON__')) {
       try {
-        final jsonStr = rawDesc.replaceFirst('__BRANCHES_JSON__', '');
-        final Map<String, dynamic> data = jsonDecode(jsonStr);
-        rawDesc = data['main_description'] ?? '';
-        final list = data['branches'] as List<dynamic>?;
-        if (list != null) {
-          parsedBranches = list.map((b) => StepBranch.fromJson(Map<String, dynamic>.from(b))).toList();
+        final jsonStr = rawDesc.substring('__BRANCHES_JSON__'.length);
+        final decoded = jsonDecode(jsonStr);
+        if (decoded is Map) {
+          final data = Map<String, dynamic>.from(decoded);
+          final mainDescription = (data['main_description'] ?? '').toString();
+          final list = data['branches'];
+          if (list is List) {
+            parsedBranches = list
+                .whereType<Map>()
+                .map((b) => StepBranch.fromJson(Map<String, dynamic>.from(b)))
+                .toList();
+          }
+          // Keep the legal text visible to the editor even when its branches
+          // are malformed or absent.
+          return CaseStepModel(
+            id: (json['id'] ?? '').toString(),
+            caseId: (json['case_id'] ?? '').toString(),
+            stepNumber: (json['step_number'] as num?)?.toInt() ?? 0,
+            title: (json['title'] ?? '').toString(),
+            shortDescription: mainDescription,
+            branches: parsedBranches,
+          );
         }
-      } catch (_) {}
+      } catch (_) {
+        // Fall back to the original text if the embedded JSON is invalid.
+      }
     }
 
+    // قيم محصّنة: أي نوع غير متوقع من قاعدة البيانات لا يوقّع التطبيق.
     return CaseStepModel(
-      id: json['id'],
-      caseId: json['case_id'],
-      stepNumber: json['step_number'],
-      title: json['title'],
+      id: (json['id'] ?? '').toString(),
+      caseId: (json['case_id'] ?? '').toString(),
+      stepNumber: (json['step_number'] as num?)?.toInt() ?? 0,
+      title: (json['title'] ?? '').toString(),
       shortDescription: rawDesc,
       branches: parsedBranches,
     );

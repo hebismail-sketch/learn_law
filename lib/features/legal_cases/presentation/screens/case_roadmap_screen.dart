@@ -41,8 +41,12 @@ class CaseRoadmapScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
+          // RepaintBoundary يمنع إعادة رسم نقاط الخلفية مع كل حركة سكرول
+          // (كانت من أسباب تهنيج الإيمولاتور).
           const Positioned.fill(
-            child: _GridBackgroundPattern(),
+            child: RepaintBoundary(
+              child: _GridBackgroundPattern(),
+            ),
           ),
           BlocBuilder<LegalCubit, LegalState>(
             builder: (context, state) {
@@ -391,7 +395,9 @@ class _MainStepNode extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
-      child: Container(
+      // عزل عقدة الخطوة (ظلالها الثقيلة) حتى لا يعاد رسم باقي الشاشة معها.
+      child: RepaintBoundary(
+        child: Container(
         constraints: const BoxConstraints(
           maxWidth: 380,
         ),
@@ -408,14 +414,11 @@ class _MainStepNode extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: nodeColor,
                 boxShadow: [
+                  // ظل أخف: الـ blur الكبير + spread كان يخنق الإيمولاتور.
                   BoxShadow(
-                    color: glowColor.withOpacity(0.45),
-                    blurRadius: 28,
-                    spreadRadius: 4,
-                  ),
-                  BoxShadow(
-                    color: nodeColor.withOpacity(0.3),
-                    blurRadius: 10,
+                    color: glowColor.withOpacity(0.35),
+                    blurRadius: 12,
+                    spreadRadius: 1,
                   ),
                 ],
                 border: Border.all(
@@ -500,6 +503,7 @@ class _MainStepNode extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -734,10 +738,7 @@ class _BranchTitle extends StatelessWidget {
   final Color accentColor;
   final int branchNumber;
   final VoidCallback onTap;
-
-  /// هل يحتوي هذا الفرع على محتوى (محطات/خصائص)؟ تُستخدم لعرض مؤشر صغير
-  /// يشير إلى أن الضغط على الاسم يفتح صفحة بكل تفاصيل الفرع.
-  final bool hasSubSteps;
+final bool hasSubSteps;
 
   const _BranchTitle({
     required this.title,

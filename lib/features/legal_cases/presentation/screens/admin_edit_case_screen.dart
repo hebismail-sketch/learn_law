@@ -395,6 +395,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                       <BranchInputData>[])
                                   .length;
                               return ListTile(
+                                onTap: _openRoadmapEditor,
                                 leading: IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded,
                                       color: Colors.redAccent),
