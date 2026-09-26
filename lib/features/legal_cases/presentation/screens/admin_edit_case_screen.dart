@@ -29,12 +29,200 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   // Ids of steps the admin deleted from the editor; removed on save.
   final Set<String> _deletedStepIds = {};
 
+  // مسار الفولدرات: القسم الرئيسي ثم القسم الفرعي الذي تحتويه القضية.
+  String? _categoryId;
+  String _categoryName = '';
+  String? _subcategoryId;
+  String _subcategoryName = '';
+  bool _isFolderLoading = true;
+  bool _isFolderSaving = false;
+
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.legalCase.name);
     _descController = TextEditingController(text: widget.legalCase.description ?? '');
+    _subcategoryId = widget.legalCase.subcategoryId;
     _fetchCaseSteps();
+    _fetchFolderPath();
+  }
+
+  // يجلب اسم القسم الفرعي والقسم الرئيسي الذي يقع تحته
+  Future<void> _fetchFolderPath() async {
+    try {
+      final subRes = await _supabase
+          .from('subcategories')
+          .select('id, name, category_id')
+          .eq('id', widget.legalCase.subcategoryId)
+          .limit(1);
+      if (subRes.isEmpty) {
+        if (mounted) setState(() => _isFolderLoading = false);
+        return;
+      }
+      final sub = subRes.first;
+      final catRes = await _supabase
+          .from('categories')
+          .select('id, name')
+          .eq('id', sub['category_id'])
+          .limit(1);
+      if (!mounted) return;
+      setState(() {
+        _subcategoryId = sub['id']?.toString();
+        _subcategoryName = (sub['name'] ?? '').toString();
+        if (catRes.isNotEmpty) {
+          _categoryId = catRes.first['id']?.toString();
+          _categoryName = (catRes.first['name'] ?? '').toString();
+        }
+        _isFolderLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isFolderLoading = false);
+      _showSnackBar('تعذّر تحميل مسار الفولدر: $e', isError: true);
+    }
+  }
+
+  // ====== إدارة الفولدرات من شاشة تعديل القضية ======
+
+  Future<void> _renameFolder({
+    required String? id,
+    required String table,
+    required String currentName,
+    required bool isCategory,
+  }) async {
+    if (id == null || _isFolderSaving) return;
+    final controller = TextEditingController(text: currentName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isCategory ? 'تعديل اسم الفولدر الكبير' : 'تعديل اسم الفولدر',
+            textAlign: TextAlign.right),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textAlign: TextAlign.right,
+          decoration: const InputDecoration(
+            hintText: 'الاسم الجديد',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null) return;
+    if (name.isEmpty) {
+      _showSnackBar('الاسم الجديد فاضي', isError: true);
+      return;
+    }
+    if (name == currentName) return;
+    setState(() => _isFolderSaving = true);
+    try {
+      await _supabase.from(table).update({'name': name}).eq('id', id);
+      if (!mounted) return;
+      setState(() {
+        if (isCategory) {
+          _categoryName = name;
+        } else {
+          _subcategoryName = name;
+        }
+      });
+      _showSnackBar('تم تعديل اسم الفولدر بنجاح');
+    } catch (e) {
+      if (mounted) _showSnackBar('فشل تعديل الفولدر: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isFolderSaving = false);
+    }
+  }
+
+  Future<void> _deleteFolder({
+    required String? id,
+    required String name,
+    required bool isCategory,
+  }) async {
+    if (id == null || _isFolderSaving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isCategory ? 'حذف الفولدر الكبير' : 'حذف الفولدر',
+            textAlign: TextAlign.right),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isCategory
+                  ? 'سيتم حذف «$name» وكل الفولدرات الفرعية والقضايا والمراحل بداخلها نهائياً.'
+                  : 'سيتم حذف «$name» وكل القضايا والمراحل بداخلها نهائياً.',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'لا يمكن التراجع عن هذه العملية.',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontSize: 13, color: Colors.red),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حذف نهائي'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isFolderSaving = true);
+    try {
+      if (isCategory) {
+        await _deleteCategoryTree(id);
+      } else {
+        await _deleteSubcategoryTree(id);
+      }
+      if (!mounted) return;
+      _showSnackBar('تم حذف «$name» وكل ما بداخله');
+      // ISSUE: القائمة التي فتحت هذه الشاشة تحتاج تحديثاً
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('فشل الحذف: $e', isError: true);
+      setState(() => _isFolderSaving = false);
+    }
+  }
+
+  // حذف تتابعي: القضايا ← مراحلها ← الأقسام الفرعية ← التصنيف
+  Future<void> _deleteCategoryTree(String categoryId) async {
+    final subs = await _supabase.from('subcategories').select('id').eq('category_id', categoryId);
+    for (final sub in subs) {
+      await _deleteSubcategoryTree(sub['id'] as String);
+    }
+    await _supabase.from('categories').delete().eq('id', categoryId);
+  }
+
+  Future<void> _deleteSubcategoryTree(String subId) async {
+    final cases = await _supabase.from('legal_cases').select('id').eq('subcategory_id', subId);
+    for (final c in cases) {
+      await _supabase.from('case_steps').delete().eq('case_id', c['id']);
+    }
+    await _supabase.from('legal_cases').delete().eq('subcategory_id', subId);
+    await _supabase.from('subcategories').delete().eq('id', subId);
   }
 
   @override
@@ -297,6 +485,64 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   }
 
 
+  // صف فولدر واحد مع أيقونة تعديل وأيقونة سلة حذف بجانبها
+  Widget _buildFolderRow({
+    required IconData icon,
+    required String label,
+    required String name,
+    required Color color,
+  }) {
+    final isCategory = label == 'الفولدر الكبير';
+    final id = isCategory ? _categoryId : _subcategoryId;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                Text(name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_rounded, size: 20, color: Colors.blueGrey),
+            tooltip: 'تعديل اسم هذا الفولدر',
+            onPressed: (_isFolderSaving || id == null)
+                ? null
+                : () => _renameFolder(
+                      id: id,
+                      table: isCategory ? 'categories' : 'subcategories',
+                      currentName: name,
+                      isCategory: isCategory,
+                    ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded,
+                size: 20, color: Colors.redAccent),
+            tooltip: 'حذف هذا الفولدر وكل ما بداخله',
+            onPressed: (_isFolderSaving || id == null)
+                ? null
+                : () => _deleteFolder(
+                      id: id, name: name, isCategory: isCategory),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -361,6 +607,57 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                               border: OutlineInputBorder(),
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // مسار الفولدر: من أكبر فولدر حتى الفولدر الذي به هذه القضية
+                  Card(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'مسار الفولدر',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const Divider(),
+                          if (_isFolderLoading)
+                            const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: LinearProgressIndicator(),
+                            )
+                          else if (_categoryName.isEmpty && _subcategoryName.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Text('القضية غير مرتبطة بأي فولدر'),
+                            )
+                          else ...[
+                            _buildFolderRow(
+                              icon: Icons.folder_special_rounded,
+                              label: 'الفولدر الكبير',
+                              name: _categoryName,
+                              color: const Color(0xFF1E3A8A),
+                            ),
+                            if (_subcategoryName.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.only(right: 6, top: 2, bottom: 2),
+                                child: Text('‹',
+                                    style: TextStyle(color: Colors.grey, fontSize: 18)),
+                              ),
+                              _buildFolderRow(
+                                icon: Icons.folder_rounded,
+                                label: 'الفولدر',
+                                name: _subcategoryName,
+                                color: Colors.amber.shade800,
+                              ),
+                            ],
+                          ],
                         ],
                       ),
                     ),

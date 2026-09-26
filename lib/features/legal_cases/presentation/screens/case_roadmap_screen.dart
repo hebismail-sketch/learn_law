@@ -844,8 +844,7 @@ class _BranchForkConnector extends StatelessWidget {
 }
 
 // ============================================================================
-// MERGE CONNECTOR
-// ============================================================================
+// MERGE CONNECT// ============================================================================
 
 class _BranchMergeConnector extends StatelessWidget {
   final int branchCount;
