@@ -1,5 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/sync/app_database.dart';
+import '../core/sync/local_data_source.dart';
 import '../features/legal_cases/data/datasources/legal_remote_data_source.dart';
 import '../features/legal_cases/data/repositories/legal_repository_impl.dart';
 import '../features/legal_cases/domain/repositories/legal_repository.dart';
@@ -28,13 +30,18 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetLegalCasesUseCase(sl()));
   sl.registerLazySingleton(() => GetCaseStepsUseCase(sl()));
 
-  // Repository
-  sl.registerLazySingleton<LegalRepository>(
-        () => LegalRepositoryImpl(remoteDataSource: sl()),
-  );
-
-  // DataSources
-  sl.registerLazySingleton<LegalRemoteDataSource>(
-        () => LegalRemoteDataSourceImpl(supabaseClient: Supabase.instance.client),
-  );
-}
+    // Repository
+    sl.registerLazySingleton<LegalRepository>(
+      () => LegalRepositoryImpl(localDataSource: sl()),
+    );
+    // DataSources
+    sl.registerLazySingleton<LegalRemoteDataSource>(
+      () => LegalRemoteDataSourceImpl(supabaseClient: Supabase.instance.client),
+    );
+    // Local database (offline-first). Registered as a singleton so every screen
+    // shares one SQLite connection.
+    sl.registerLazySingleton<AppDatabase>(AppDatabase.new);
+    sl.registerLazySingleton<LocalDataSource>(
+      () => LocalDataSourceImpl(sl()),
+    );
+  }
