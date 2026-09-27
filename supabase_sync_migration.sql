@@ -35,14 +35,16 @@ alter table public.case_steps
   add column if not exists updated_at timestamptz,
   add column if not exists deleted_at  timestamptz;
 
--- Give the new columns a value for every existing row. COALESCE keeps this
--- working on a table that never had `created_at`.
-update public.categories   set updated_at = coalesce(created_at, now()) where updated_at is null;
-update public.subcategories set updated_at = coalesce(created_at, now()) where updated_at is null;
-update public.legal_cases  set updated_at = coalesce(created_at, now()) where updated_at is null;
-update public.case_steps   set updated_at = coalesce(created_at, now()) where updated_at is null;
+-- Give the new columns a value for every existing row. `now()` is used rather
+-- than created_at because these tables have no created_at column, which was
+-- confirmed against information_schema before writing this migration.
+update public.categories    set updated_at = now() where updated_at is null;
+update public.subcategories set updated_at = now() where updated_at is null;
+update public.legal_cases   set updated_at = now() where updated_at is null;
+update public.case_steps    set updated_at = now() where updated_at is null;
 
--- NOT NULL now that every row has a value, so the pull can rely on it.
+-- Backfilling first, then marking not null, is the order the migration was
+-- actually applied in.
 alter table public.categories    alter column updated_at set not null;
 alter table public.subcategories alter column updated_at set not null;
 alter table public.legal_cases   alter column updated_at set not null;
