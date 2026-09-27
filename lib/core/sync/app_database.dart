@@ -13,7 +13,12 @@ part 'app_database.g.dart';
 class SyncColumns extends Table {
   /// Client-generated UUID. Generated on the phone so a row exists locally
   /// before it is ever pushed.
+  ///
+  /// This is the primary key, which is what lets the pull use
+  /// `insertOnConflictUpdate` to upsert a server row onto an existing one.
   TextColumn get id => text()();
+  @override
+  Set<Column<Object>> get primaryKey => {id};
 
   /// When this row was last modified on this device.
   DateTimeColumn get updatedAt => dateTime()();
@@ -85,8 +90,24 @@ class SyncQueue extends Table {
   TextColumn get lastError => text().nullable()();
 }
 
+/// Per-table watermark of the last successful pull.
+///
+/// Stored in its own table rather than inside [SyncQueue] so a watermark can
+/// never be mistaken for a pending operation and pushed to the server.
+@DataClassName('SyncWatermark')
+class SyncState extends Table {
+  /// One of [SyncTables.all]. The primary key, since there is one watermark
+  /// row per table.
+  TextColumn get targetTable => text()();
+  @override
+  Set<Column<Object>> get primaryKey => {targetTable};
+
+  /// Timestamp of the newest row this device has already pulled.
+  DateTimeColumn get lastSyncedAt => dateTime()();
+}
+
 @DriftDatabase(
-  tables: [Categories, Subcategories, LegalCases, CaseSteps, SyncQueue],
+  tables: [Categories, Subcategories, LegalCases, CaseSteps, SyncQueue, SyncState],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'learn_law'));

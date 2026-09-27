@@ -124,7 +124,7 @@ class $CategoriesTable extends Categories
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => const {};
+  Set<GeneratedColumn> get $primaryKey => {id};
   @override
   LocalCategory map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -161,6 +161,9 @@ class $CategoriesTable extends Categories
 class LocalCategory extends DataClass implements Insertable<LocalCategory> {
   /// Client-generated UUID. Generated on the phone so a row exists locally
   /// before it is ever pushed.
+  ///
+  /// This is the primary key, which is what lets the pull use
+  /// `insertOnConflictUpdate` to upsert a server row onto an existing one.
   final String id;
 
   /// When this row was last modified on this device.
@@ -500,7 +503,7 @@ class $SubcategoriesTable extends Subcategories
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => const {};
+  Set<GeneratedColumn> get $primaryKey => {id};
   @override
   LocalSubcategory map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -538,6 +541,9 @@ class LocalSubcategory extends DataClass
     implements Insertable<LocalSubcategory> {
   /// Client-generated UUID. Generated on the phone so a row exists locally
   /// before it is ever pushed.
+  ///
+  /// This is the primary key, which is what lets the pull use
+  /// `insertOnConflictUpdate` to upsert a server row onto an existing one.
   final String id;
 
   /// When this row was last modified on this device.
@@ -898,7 +904,7 @@ class $LegalCasesTable extends LegalCases
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => const {};
+  Set<GeneratedColumn> get $primaryKey => {id};
   @override
   LocalLegalCase map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -939,6 +945,9 @@ class $LegalCasesTable extends LegalCases
 class LocalLegalCase extends DataClass implements Insertable<LocalLegalCase> {
   /// Client-generated UUID. Generated on the phone so a row exists locally
   /// before it is ever pushed.
+  ///
+  /// This is the primary key, which is what lets the pull use
+  /// `insertOnConflictUpdate` to upsert a server row onto an existing one.
   final String id;
 
   /// When this row was last modified on this device.
@@ -1345,7 +1354,7 @@ class $CaseStepsTable extends CaseSteps
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => const {};
+  Set<GeneratedColumn> get $primaryKey => {id};
   @override
   LocalCaseStep map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -1390,6 +1399,9 @@ class $CaseStepsTable extends CaseSteps
 class LocalCaseStep extends DataClass implements Insertable<LocalCaseStep> {
   /// Client-generated UUID. Generated on the phone so a row exists locally
   /// before it is ever pushed.
+  ///
+  /// This is the primary key, which is what lets the pull use
+  /// `insertOnConflictUpdate` to upsert a server row onto an existing one.
   final String id;
 
   /// When this row was last modified on this device.
@@ -2195,6 +2207,238 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
   }
 }
 
+class $SyncStateTable extends SyncState
+    with TableInfo<$SyncStateTable, SyncWatermark> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncStateTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _targetTableMeta = const VerificationMeta(
+    'targetTable',
+  );
+  @override
+  late final GeneratedColumn<String> targetTable = GeneratedColumn<String>(
+    'target_table',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSyncedAtMeta = const VerificationMeta(
+    'lastSyncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+    'last_synced_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [targetTable, lastSyncedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncWatermark> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('target_table')) {
+      context.handle(
+        _targetTableMeta,
+        targetTable.isAcceptableOrUnknown(
+          data['target_table']!,
+          _targetTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_targetTableMeta);
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+        _lastSyncedAtMeta,
+        lastSyncedAt.isAcceptableOrUnknown(
+          data['last_synced_at']!,
+          _lastSyncedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastSyncedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {targetTable};
+  @override
+  SyncWatermark map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncWatermark(
+      targetTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_table'],
+      )!,
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_synced_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncStateTable createAlias(String alias) {
+    return $SyncStateTable(attachedDatabase, alias);
+  }
+}
+
+class SyncWatermark extends DataClass implements Insertable<SyncWatermark> {
+  /// One of [SyncTables.all]. The primary key, since there is one watermark
+  /// row per table.
+  final String targetTable;
+
+  /// Timestamp of the newest row this device has already pulled.
+  final DateTime lastSyncedAt;
+  const SyncWatermark({required this.targetTable, required this.lastSyncedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['target_table'] = Variable<String>(targetTable);
+    map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    return map;
+  }
+
+  SyncStateCompanion toCompanion(bool nullToAbsent) {
+    return SyncStateCompanion(
+      targetTable: Value(targetTable),
+      lastSyncedAt: Value(lastSyncedAt),
+    );
+  }
+
+  factory SyncWatermark.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncWatermark(
+      targetTable: serializer.fromJson<String>(json['targetTable']),
+      lastSyncedAt: serializer.fromJson<DateTime>(json['lastSyncedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'targetTable': serializer.toJson<String>(targetTable),
+      'lastSyncedAt': serializer.toJson<DateTime>(lastSyncedAt),
+    };
+  }
+
+  SyncWatermark copyWith({String? targetTable, DateTime? lastSyncedAt}) =>
+      SyncWatermark(
+        targetTable: targetTable ?? this.targetTable,
+        lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      );
+  SyncWatermark copyWithCompanion(SyncStateCompanion data) {
+    return SyncWatermark(
+      targetTable: data.targetTable.present
+          ? data.targetTable.value
+          : this.targetTable,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncWatermark(')
+          ..write('targetTable: $targetTable, ')
+          ..write('lastSyncedAt: $lastSyncedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(targetTable, lastSyncedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncWatermark &&
+          other.targetTable == this.targetTable &&
+          other.lastSyncedAt == this.lastSyncedAt);
+}
+
+class SyncStateCompanion extends UpdateCompanion<SyncWatermark> {
+  final Value<String> targetTable;
+  final Value<DateTime> lastSyncedAt;
+  final Value<int> rowid;
+  const SyncStateCompanion({
+    this.targetTable = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncStateCompanion.insert({
+    required String targetTable,
+    required DateTime lastSyncedAt,
+    this.rowid = const Value.absent(),
+  }) : targetTable = Value(targetTable),
+       lastSyncedAt = Value(lastSyncedAt);
+  static Insertable<SyncWatermark> custom({
+    Expression<String>? targetTable,
+    Expression<DateTime>? lastSyncedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (targetTable != null) 'target_table': targetTable,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncStateCompanion copyWith({
+    Value<String>? targetTable,
+    Value<DateTime>? lastSyncedAt,
+    Value<int>? rowid,
+  }) {
+    return SyncStateCompanion(
+      targetTable: targetTable ?? this.targetTable,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (targetTable.present) {
+      map['target_table'] = Variable<String>(targetTable.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncStateCompanion(')
+          ..write('targetTable: $targetTable, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2203,6 +2447,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LegalCasesTable legalCases = $LegalCasesTable(this);
   late final $CaseStepsTable caseSteps = $CaseStepsTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
+  late final $SyncStateTable syncState = $SyncStateTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2213,6 +2458,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     legalCases,
     caseSteps,
     syncQueue,
+    syncState,
   ];
 }
 
@@ -3345,6 +3591,153 @@ typedef $$SyncQueueTableProcessedTableManager =
       PendingOp,
       PrefetchHooks Function()
     >;
+typedef $$SyncStateTableCreateCompanionBuilder =
+    SyncStateCompanion Function({
+      required String targetTable,
+      required DateTime lastSyncedAt,
+      Value<int> rowid,
+    });
+typedef $$SyncStateTableUpdateCompanionBuilder =
+    SyncStateCompanion Function({
+      Value<String> targetTable,
+      Value<DateTime> lastSyncedAt,
+      Value<int> rowid,
+    });
+
+class $$SyncStateTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncStateTable> {
+  $$SyncStateTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get targetTable => $composableBuilder(
+    column: $table.targetTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncStateTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncStateTable> {
+  $$SyncStateTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get targetTable => $composableBuilder(
+    column: $table.targetTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncStateTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncStateTable> {
+  $$SyncStateTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get targetTable => $composableBuilder(
+    column: $table.targetTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+    column: $table.lastSyncedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncStateTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncStateTable,
+          SyncWatermark,
+          $$SyncStateTableFilterComposer,
+          $$SyncStateTableOrderingComposer,
+          $$SyncStateTableAnnotationComposer,
+          $$SyncStateTableCreateCompanionBuilder,
+          $$SyncStateTableUpdateCompanionBuilder,
+          (
+            SyncWatermark,
+            BaseReferences<_$AppDatabase, $SyncStateTable, SyncWatermark>,
+          ),
+          SyncWatermark,
+          PrefetchHooks Function()
+        > {
+  $$SyncStateTableTableManager(_$AppDatabase db, $SyncStateTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncStateTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncStateTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncStateTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> targetTable = const Value.absent(),
+                Value<DateTime> lastSyncedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncStateCompanion(
+                targetTable: targetTable,
+                lastSyncedAt: lastSyncedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String targetTable,
+                required DateTime lastSyncedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncStateCompanion.insert(
+                targetTable: targetTable,
+                lastSyncedAt: lastSyncedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncStateTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncStateTable,
+      SyncWatermark,
+      $$SyncStateTableFilterComposer,
+      $$SyncStateTableOrderingComposer,
+      $$SyncStateTableAnnotationComposer,
+      $$SyncStateTableCreateCompanionBuilder,
+      $$SyncStateTableUpdateCompanionBuilder,
+      (
+        SyncWatermark,
+        BaseReferences<_$AppDatabase, $SyncStateTable, SyncWatermark>,
+      ),
+      SyncWatermark,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3359,4 +3752,6 @@ class $AppDatabaseManager {
       $$CaseStepsTableTableManager(_db, _db.caseSteps);
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
+  $$SyncStateTableTableManager get syncState =>
+      $$SyncStateTableTableManager(_db, _db.syncState);
 }

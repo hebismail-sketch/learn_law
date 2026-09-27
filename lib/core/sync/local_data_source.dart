@@ -103,7 +103,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     required String name,
     String? description,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     // The id is minted here, not on the server, so the row is complete and
     // editable locally before it is ever pushed.
@@ -141,7 +141,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     required String name,
     String? description,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       // Only the columns we actually changed are listed. Anything omitted
@@ -176,7 +176,7 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<void> deleteCategory({required String id}) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       // Soft delete: the row survives locally so the delete can be pushed
@@ -215,7 +215,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     required String categoryId,
     required String name,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final id = _uuid.v4();
 
     await db.transaction(() async {
@@ -249,7 +249,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     required String id,
     required String name,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       await (db.update(db.subcategories)..where((t) => t.id.equals(id))).write(
@@ -271,7 +271,7 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<void> deleteSubcategory({required String id}) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       // A soft delete on a parent would leave its children visible on other
@@ -306,7 +306,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     required String title,
     String? description,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final id = _uuid.v4();
 
     await db.transaction(() async {
@@ -343,7 +343,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     required String title,
     String? description,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       await (db.update(db.legalCases)..where((t) => t.id.equals(id))).write(
@@ -369,7 +369,7 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<void> deleteLegalCase({required String id}) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       await _softDeleteTree(
@@ -400,7 +400,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     required String title,
     required String shortDescription,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final id = _uuid.v4();
 
     await db.transaction(() async {
@@ -440,7 +440,7 @@ class LocalDataSourceImpl implements LocalDataSource {
     String? title,
     String? shortDescription,
   }) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       // Every argument is optional here because the roadmap editor renumbers
@@ -471,7 +471,7 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<void> deleteCaseStep({required String id}) async {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
       await (db.update(db.caseSteps)..where((t) => t.id.equals(id))).write(

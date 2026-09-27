@@ -17,9 +17,9 @@ dependencies:
   get_it: ^9.2.1
 
   # --- Offline-first sync stack (Stage 1) ---
-  drift: ^2.28.2
-  drift_flutter: ^0.2.4
-  sqlite3_flutter_libs: ^0.5.42
+  drift: ^2.34.0
+  drift_flutter: ^0.3.0
+  sqlite3_flutter_libs: ^0.6.0
   path_provider: ^2.1.5
   path: ^1.9.1
   connectivity_plus: ^6.1.5
@@ -28,7 +28,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  drift_dev: ^2.28.2
+  drift_dev: ^2.34.0
   build_runner: ^2.4.13
   flutter_lints: ^6.0.0
 
