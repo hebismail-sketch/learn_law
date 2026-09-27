@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/step_branch.dart';
+import 'step_detail_screen.dart';
 
 class BranchDetailScreen extends StatelessWidget {
   final String caseName;
@@ -14,23 +15,21 @@ class BranchDetailScreen extends StatelessWidget {
 
   /// The branch's own colour, used for the header and every accent on the page
   /// so the outcome stays obvious at a glance.
+  ///
+  /// The stored `outcome` is preferred over matching on the title, because a
+  /// title can be renamed by an admin while the outcome stays the same.
   Color get _accentColor {
-    if (branch.outcome == 'acceptance' || branch.title.contains('قبول')) {
-      return const Color(0xFF16A34A);
+    switch (branch.outcome) {
+      case 'acceptance':
+        return const Color(0xFF16A34A);
+      case 'rejection':
+        return const Color(0xFFDC2626);
+      case 'appeal':
+        return const Color(0xFFD97706);
     }
-    if (branch.outcome == 'rejection' || branch.title.contains('رفض')) {
-      return const Color(0xFFDC2626);
-    }
-    if (branch.outcome == 'appeal' ||
-        branch.title.contains('استئناف') ||
-        branch.title.contains('طعن')) {
-      return const Color(0xFFD97706);
-    }
-    return const Color(0xFF4F46E5);
+    // Fall back to the title for branches written before `outcome` was stored.
+    return LegalTheme.branchColor(branch.title);
   }
-
-  /// A very light wash of the accent, for the individual step boxes.
-  Color get _stepTint => _accentColor.withValues(alpha: 0.07);
 
   @override
   Widget build(BuildContext context) {
@@ -41,11 +40,11 @@ class BranchDetailScreen extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F7FB),
+        backgroundColor: LegalTheme.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFFF7F7FB),
+          backgroundColor: LegalTheme.background,
           surfaceTintColor: Colors.transparent,
-          foregroundColor: const Color(0xFF1F2937),
+          foregroundColor: LegalTheme.textPrimary,
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: true,
@@ -54,7 +53,7 @@ class BranchDetailScreen extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 17,
-              color: Color(0xFF1F2937),
+              color: LegalTheme.textPrimary,
             ),
           ),
         ),
@@ -64,29 +63,34 @@ class BranchDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _header(),
-              const SizedBox(height: 18),
 
+              // The description comes first and in full, matching the order on
+              // the step screen.
               if (branch.description.trim().isNotEmpty) ...[
-                _section(
+                const SizedBox(height: 18),
+                DetailSection(
                   title: 'وصف المسار',
                   icon: Icons.description_outlined,
+                  accent: _accentColor,
                   child: Text(
                     branch.description,
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: 15,
                       height: 1.9,
-                      color: Color(0xFF1F2937),
+                      color: LegalTheme.textPrimary,
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
               ],
 
               if (branch.subSteps.isNotEmpty) ...[
-                _section(
+                const SizedBox(height: 18),
+                DetailSection(
                   title: 'خصائص وإجراءات المسار',
                   icon: Icons.list_alt_rounded,
+                  accent: _accentColor,
+                  trailing: '${branch.subSteps.length} خطوة',
                   // Each step gets its own tinted box, so a long procedure can
                   // be scanned one line at a time instead of as a wall of text.
                   child: Column(
@@ -100,7 +104,7 @@ class BranchDetailScreen extends StatelessWidget {
                               vertical: 14,
                             ),
                             decoration: BoxDecoration(
-                              color: _stepTint,
+                              color: LegalTheme.tint(_accentColor),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: _accentColor.withValues(alpha: 0.18),
@@ -112,7 +116,7 @@ class BranchDetailScreen extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 14.5,
                                 height: 1.7,
-                                color: Color(0xFF1F2937),
+                                color: LegalTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -120,13 +124,15 @@ class BranchDetailScreen extends StatelessWidget {
                         .toList(),
                   ),
                 ),
-                const SizedBox(height: 18),
               ],
 
               if (branch.branches.isNotEmpty) ...[
-                _section(
+                const SizedBox(height: 18),
+                DetailSection(
                   title: 'مسارات فرعية',
                   icon: Icons.alt_route_rounded,
+                  accent: _accentColor,
+                  trailing: '${branch.branches.length} مسارات',
                   child: Column(
                     children: branch.branches
                         .map(
@@ -142,7 +148,7 @@ class BranchDetailScreen extends StatelessWidget {
                               textAlign: TextAlign.right,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2937),
+                                color: LegalTheme.textPrimary,
                               ),
                             ),
                             onTap: () => Navigator.push(
@@ -159,7 +165,6 @@ class BranchDetailScreen extends StatelessWidget {
                         .toList(),
                   ),
                 ),
-                const SizedBox(height: 18),
               ],
 
               if (!hasContent)
@@ -218,54 +223,6 @@ class BranchDetailScreen extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _section({
-    required String title,
-    required IconData icon,
-    required Widget child,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          // A tight, low-opacity shadow: enough to lift the card off the
-          // background without the heavy drop shadow of the old design.
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(icon, color: _accentColor, size: 21),
-            ],
-          ),
-          // A full-width rule under the heading separates the label from the
-          // content, which is what makes each block read as its own unit.
-          const Divider(height: 22, thickness: 1, color: Color(0xFFE5E7EB)),
-          child,
         ],
       ),
     );

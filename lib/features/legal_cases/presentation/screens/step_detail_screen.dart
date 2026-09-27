@@ -4,52 +4,47 @@ import 'package:flutter/services.dart';
 import '../../domain/entities/case_step_entity.dart';
 import '../../domain/entities/step_branch.dart';
 
-/// Visual language for the step detail screen.
-///
-/// Navy carries the legal weight, gold marks what needs attention. Kept in one
-/// place so the rest of the app can adopt the same language later.
+/// The step screen and the branch screen are both "read a procedure" pages, so
+/// they share one visual language. These constants live here so the two cannot
+/// drift apart.
 class LegalTheme {
   const LegalTheme._();
 
-  /// Deep navy. Headings and the hero.
-  static const Color navy = Color(0xFF1E3A8A);
-  static const Color navyDark = Color(0xFF15266B);
-
-  /// Gold. The step number and accents.
-  static const Color gold = Color(0xFFB8860B);
-
-  /// Surfaces.
-  static const Color background = Color(0xFFF4F6FA);
+  static const Color background = Color(0xFFF7F7FB);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color hairline = Color(0xFFE3E8F0);
+  static const Color textPrimary = Color(0xFF1F2937);
+  static const Color hairline = Color(0xFFE5E7EB);
 
-  /// Text.
-  static const Color textPrimary = Color(0xFF111827);
-  static const Color textSecondary = Color(0xFF4B5563);
-  static const Color textMuted = Color(0xFF9CA3AF);
-
-  /// Branch outcome colours. Green for accepted, red for rejected, gold for an
-  /// appeal, navy for anything unclassified.
-  static const Color accepted = Color(0xFF15803D);
-  static const Color rejected = Color(0xFFB91C1C);
-  static const Color appeal = Color(0xFFB45309);
-  static const Color neutral = Color(0xFF1E3A8A);
-
-  /// Corners. Tight enough that a card reads as a block, not a pill.
-  static const double radius = 16;
-  static const double radiusSmall = 10;
+  /// Fallback for a branch with no recognisable outcome.
+  static const Color neutral = Color(0xFF4F46E5);
 
   /// The outcome colour for a branch, derived from its title.
   static Color branchColor(String title) {
-    if (title.contains('قبول')) return accepted;
-    if (title.contains('رفض')) return rejected;
-    if (title.contains('استئناف') || title.contains('طعن')) return appeal;
+    if (title.contains('قبول')) return const Color(0xFF16A34A);
+    if (title.contains('رفض')) return const Color(0xFFDC2626);
+    if (title.contains('استئناف') || title.contains('طعن')) {
+      return const Color(0xFFD97706);
+    }
     return neutral;
   }
 
-  /// A very light wash of a branch colour, for card backgrounds.
-  static Color branchTint(Color color) =>
-      Color.alphaBlend(color.withValues(alpha: 0.06), Colors.white);
+  /// A very light wash of a colour, for card and step backgrounds.
+  static Color tint(Color color) => color.withValues(alpha: 0.07);
+
+  /// The white card used for every section on these pages.
+  static BoxDecoration card() => const BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.all(Radius.circular(20)),
+        boxShadow: [
+          // Tight and low opacity: lifts the card off the background without
+          // the heavy drop shadow of the old design.
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      );
 }
 
 class StepDetailScreen extends StatefulWidget {
@@ -80,110 +75,103 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
       step.branches.isEmpty ? 0 : step.branches.length - 1,
     );
 
-    return Scaffold(
-      backgroundColor: LegalTheme.background,
-      appBar: AppBar(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
         backgroundColor: LegalTheme.background,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: LegalTheme.navy,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        title: Text(
-          'المرحلة ${step.stepNumber}',
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 16,
-            color: LegalTheme.navy,
+        appBar: AppBar(
+          backgroundColor: LegalTheme.background,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: LegalTheme.textPrimary,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: true,
+          title: Text(
+            'المرحلة ${step.stepNumber}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              color: LegalTheme.textPrimary,
+            ),
           ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.copy_all_outlined),
-            tooltip: 'نسخ نص المرحلة',
-            onPressed: () => _copyStepText(step),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _StepHero(step: step, caseName: widget.caseName),
-
-            // A real gap plus a rule, so the reader can see where one topic
-            // ends and the next begins without hunting for it.
-            const SizedBox(height: 22),
-            const Divider(height: 1, color: LegalTheme.hairline),
-            const SizedBox(height: 22),
-
-            _SectionLabel(
-              text: 'الإجراءات العامة',
-              accent: LegalTheme.navy,
-            ),
-            const SizedBox(height: 10),
-            _Panel(
-              child: Text(
-                step.shortDescription.isNotEmpty
-                    ? step.shortDescription
-                    : 'تتضمن هذه المرحلة استيفاء الشروط القانونية ومتابعة '
-                        'الإجراءات المقررة نظاماً.',
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 15.5,
-                  height: 1.9,
-                  color: LegalTheme.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-
-            if (hasBranches) ...[
-              const SizedBox(height: 22),
-              const Divider(height: 1, color: LegalTheme.hairline),
-              const SizedBox(height: 22),
-
-              _SectionLabel(
-                text: 'المسارات والسيناريوهات',
-                accent: LegalTheme.gold,
-                trailing: step.branches.length == 1
-                    ? 'مسار واحد'
-                    : '${step.branches.length} مسارات',
-              ),
-              const SizedBox(height: 10),
-              _BranchSelector(
-                branches: step.branches,
-                selectedIndex: safeBranchIndex,
-                onSelect: (index) => setState(() => _selectedBranchIndex = index),
-              ),
-              const SizedBox(height: 12),
-              _buildBranchCard(step.branches[safeBranchIndex]),
-            ],
-
-            const SizedBox(height: 22),
-            const Divider(height: 1, color: LegalTheme.hairline),
-            const SizedBox(height: 22),
-
-            _SectionLabel(
-              text: 'نصائح للمحامي',
-              accent: LegalTheme.gold,
-            ),
-            const SizedBox(height: 10),
-            _Panel(
-              child: const Text(
-                'تأكد من توقيع الموكل على كافة التوكيلات الرسمية والتحقق من '
-                'صحة تواريخ المستندات وسلامتها قبل إيداع الصحيفة أمام قلم الكتاب.',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 15.5,
-                  height: 1.9,
-                  color: LegalTheme.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.copy_all_outlined),
+              tooltip: 'نسخ نص المرحلة',
+              onPressed: () => _copyStepText(step),
             ),
           ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _header(),
+
+              // The description comes first and in full: it is the prose the
+              // rest of the page explains.
+              const SizedBox(height: 18),
+              DetailSection(
+                title: 'وصف المرحلة',
+                icon: Icons.description_outlined,
+                accent: LegalTheme.neutral,
+                child: Text(
+                  step.shortDescription.isNotEmpty
+                      ? step.shortDescription
+                      : 'تتضمن هذه المرحلة استيفاء الشروط القانونية ومتابعة '
+                          'الإجراءات المقررة نظاماً.',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.9,
+                    color: LegalTheme.textPrimary,
+                  ),
+                ),
+              ),
+
+              if (hasBranches) ...[
+                const SizedBox(height: 18),
+                DetailSection(
+                  title: 'المسارات والسيناريوهات',
+                  icon: Icons.alt_route_rounded,
+                  accent: LegalTheme.neutral,
+                  trailing: step.branches.length == 1
+                      ? 'مسار واحد'
+                      : '${step.branches.length} مسارات',
+                  child: Column(
+                    children: [
+                      _BranchSelector(
+                        branches: step.branches,
+                        selectedIndex: safeBranchIndex,
+                        onSelect: (index) =>
+                            setState(() => _selectedBranchIndex = index),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildBranchCard(step.branches[safeBranchIndex]),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 18),
+              const DetailSection(
+                title: 'نصائح للمحامي',
+                icon: Icons.lightbulb_outline_rounded,
+                accent: Color(0xFFD97706),
+                child: Text(
+                  'تأكد من توقيع الموكل على كافة التوكيلات الرسمية والتحقق من '
+                  'صحة تواريخ المستندات وسلامتها قبل إيداع الصحيفة أمام قلم الكتاب.',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.9,
+                    color: LegalTheme.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -199,16 +187,16 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
         ..writeln()
         ..writeln(branch.title)
         ..writeln(branch.description);
+      for (final station in branch.subSteps) {
+        buffer.writeln('- $station');
+      }
     }
     await Clipboard.setData(ClipboardData(text: buffer.toString()));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'تم نسخ نص المرحلة',
-          textAlign: TextAlign.right,
-        ),
-        backgroundColor: LegalTheme.navy,
+        content: Text('تم نسخ نص المرحلة', textAlign: TextAlign.right),
+        backgroundColor: LegalTheme.textPrimary,
       ),
     );
   }
@@ -216,283 +204,139 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
   Widget _buildBranchCard(StepBranch branch) {
     final accent = LegalTheme.branchColor(branch.title);
 
-    return _Panel(
-      tint: LegalTheme.branchTint(accent),
-      borderColor: accent.withValues(alpha: 0.22),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+      decoration: BoxDecoration(
+        color: LegalTheme.tint(accent),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // A bar plus the name: the outcome is the one fact a reader needs
-          // before the detail below it.
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(2),
+          // The outcome is the one fact a reader needs before the detail, so
+          // it leads as a solid pill.
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Text(
+                branch.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.5,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  branch.title,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: accent,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15.5,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            branch.description.isEmpty
-                ? 'لم يتم تحديد تفاصيل لهذا المسار.'
-                : branch.description,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.9,
-              color: LegalTheme.textPrimary,
             ),
           ),
-
-          if (branch.subSteps.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            // A rule inside the card separates the prose from the ordered
-            // stations, which are a different kind of content.
-            Divider(height: 1, color: accent.withValues(alpha: 0.18)),
+          if (branch.description.isNotEmpty) ...[
             const SizedBox(height: 14),
-            const Text(
-              'المحطات المتتالية',
+            Text(
+              branch.description,
               textAlign: TextAlign.right,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: LegalTheme.textMuted,
+              style: const TextStyle(
+                fontSize: 14.5,
+                height: 1.85,
+                color: LegalTheme.textPrimary,
               ),
             ),
-            const SizedBox(height: 12),
-            // Numbered, because a reader following a procedure needs to know
-            // which station comes first, second and third.
-            ...branch.subSteps.asMap().entries.map(
-                  (entry) => _StationRow(
-                    number: entry.key + 1,
-                    text: entry.value,
-                    accent: accent,
+          ],
+          if (branch.subSteps.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            // Each step in its own white box so a long procedure can be read
+            // one line at a time.
+            ...branch.subSteps.map(
+              (station) => Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: accent.withValues(alpha: 0.25)),
+                ),
+                child: Text(
+                  station,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    height: 1.7,
+                    color: LegalTheme.textPrimary,
                   ),
                 ),
+              ),
+            ),
           ],
         ],
       ),
     );
   }
-}
 
-/// One numbered station inside a branch.
-class _StationRow extends StatelessWidget {
-  final int number;
-  final String text;
-  final Color accent;
-
-  const _StationRow({
-    required this.number,
-    required this.text,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // The number sits on the right in this RTL layout, which is where
-          // the eye starts.
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$number',
-              style: TextStyle(
-                color: accent,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                text,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  height: 1.75,
-                  color: LegalTheme.textSecondary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A section title with a coloured marker and an optional count on the left.
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  final Color accent;
-  final String? trailing;
-
-  const _SectionLabel({
-    required this.text,
-    required this.accent,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        if (trailing != null) ...[
-          Text(
-            trailing!,
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: LegalTheme.textMuted,
-            ),
-          ),
-          const SizedBox(width: 10),
-        ],
-        Expanded(
-          child: Text(
-            text,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: LegalTheme.textPrimary,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Container(
-          width: 4,
-          height: 20,
-          decoration: BoxDecoration(
-            color: accent,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// A white block. One box style, so every section on the page matches.
-class _Panel extends StatelessWidget {
-  final Widget child;
-  final Color tint;
-  final Color borderColor;
-  final EdgeInsetsGeometry padding;
-
-  const _Panel({
-    required this.child,
-    this.tint = LegalTheme.surface,
-    this.borderColor = LegalTheme.hairline,
-    this.padding = const EdgeInsets.fromLTRB(16, 16, 16, 18),
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _header() {
     return Container(
       width: double.infinity,
-      padding: padding,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: BoxDecoration(
-        color: tint,
-        borderRadius: BorderRadius.circular(LegalTheme.radius),
-        border: Border.all(color: borderColor),
-      ),
-      child: child,
-    );
-  }
-}
-
-/// The case name and step title, shown as a strong opening block.
-class _StepHero extends StatelessWidget {
-  final CaseStepEntity step;
-  final String caseName;
-
-  const _StepHero({required this.step, required this.caseName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-      decoration: BoxDecoration(
-        color: LegalTheme.navy,
-        borderRadius: BorderRadius.circular(LegalTheme.radius),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1E3A8A), Color(0xFF2A4A9E)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The case name is context, so it stays quiet above the headline.
           Text(
-            caseName,
+            widget.caseName,
+            textAlign: TextAlign.right,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontWeight: FontWeight.w600,
-              fontSize: 12.5,
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
-                  step.title,
+                  widget.step.title,
                   textAlign: TextAlign.right,
                   style: const TextStyle(
                     color: Colors.white,
+                    fontSize: 21,
+                    height: 1.4,
                     fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    height: 1.45,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               // The step number is what a reader checks first when moving
-              // through a long case, so it gets the only accent on the page.
+              // through a long case.
               Container(
                 width: 40,
                 height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: LegalTheme.gold,
+                  color: const Color(0xFFCA8A04),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '${step.stepNumber}',
+                  '${widget.step.stepNumber}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -502,6 +346,69 @@ class _StepHero extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The white card used for every section: a coloured icon, a title, a rule,
+/// then the content. Public so the branch screen reuses it and the two pages
+/// cannot drift apart.
+class DetailSection extends StatelessWidget {
+  final String title;
+  final String? trailing;
+  final IconData icon;
+  final Color accent;
+  final Widget child;
+
+  const DetailSection({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.accent,
+    this.trailing,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      decoration: LegalTheme.card(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (trailing != null) ...[
+                Text(
+                  trailing!,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: LegalTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(icon, color: accent, size: 21),
+            ],
+          ),
+          // A full-width rule under the heading separates the label from the
+          // content, which is what makes each block read as its own unit.
+          const Divider(height: 22, thickness: 1, color: LegalTheme.hairline),
+          child,
         ],
       ),
     );
@@ -543,7 +450,7 @@ class _BranchSelector extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected ? accent : LegalTheme.surface,
-                borderRadius: BorderRadius.circular(LegalTheme.radiusSmall),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isSelected ? accent : LegalTheme.hairline,
                 ),
@@ -551,7 +458,7 @@ class _BranchSelector extends StatelessWidget {
               child: Text(
                 branch.title,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : LegalTheme.textSecondary,
+                  color: isSelected ? Colors.white : LegalTheme.textPrimary,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                   fontSize: 13.5,
                 ),
