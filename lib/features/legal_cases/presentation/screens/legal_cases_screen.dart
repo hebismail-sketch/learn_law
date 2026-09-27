@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/injection_container.dart';
+import '../../../../core/sync/local_data_source.dart';
 import '../../domain/entities/subcategory_entity.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../bloc/legal_cubit.dart';
@@ -50,11 +51,9 @@ class LegalCasesScreen extends StatelessWidget {
     if (confirm != true) return;
 
     try {
-      final supabase = Supabase.instance.client;
-      // 1. Delete associated steps first
-      await supabase.from('case_steps').delete().eq('case_id', legalCase.id);
-      // 2. Delete the legal case
-      await supabase.from('legal_cases').delete().eq('id', legalCase.id);
+      // Soft delete via the local database, which also soft deletes the steps
+      // and queues one operation per row so other devices learn about it.
+      await sl<LocalDataSource>().deleteLegalCase(id: legalCase.id);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
