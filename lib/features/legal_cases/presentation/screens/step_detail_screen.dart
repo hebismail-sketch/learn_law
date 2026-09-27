@@ -6,40 +6,38 @@ import '../../domain/entities/step_branch.dart';
 
 /// Visual language for the step detail screen.
 ///
-/// Navy carries the legal weight, gold marks what needs attention, and the
-/// soft 24px corners keep a long legal page from looking like a wall of boxes.
-/// One place to change the palette, so the rest of the app can be brought in
-/// line later.
+/// Navy carries the legal weight, gold marks what needs attention. Kept in one
+/// place so the rest of the app can adopt the same language later.
 class LegalTheme {
   const LegalTheme._();
 
-  /// Deep navy. Headings, primary surfaces, the app bar.
+  /// Deep navy. Headings and the hero.
   static const Color navy = Color(0xFF1E3A8A);
-  static const Color navyDark = Color(0xFF152C6B);
+  static const Color navyDark = Color(0xFF15266B);
 
-  /// Gold. Accents, badges, the step number.
-  static const Color gold = Color(0xFFCA8A04);
+  /// Gold. The step number and accents.
+  static const Color gold = Color(0xFFB8860B);
 
   /// Surfaces.
-  static const Color background = Color(0xFFF7F8FC);
+  static const Color background = Color(0xFFF4F6FA);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceAlt = Color(0xFFF1F3F9);
+  static const Color hairline = Color(0xFFE3E8F0);
 
   /// Text.
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF475569);
-  static const Color textMuted = Color(0xFF94A3B8);
+  static const Color textPrimary = Color(0xFF111827);
+  static const Color textSecondary = Color(0xFF4B5563);
+  static const Color textMuted = Color(0xFF9CA3AF);
 
   /// Branch outcome colours. Green for accepted, red for rejected, gold for an
   /// appeal, navy for anything unclassified.
   static const Color accepted = Color(0xFF15803D);
   static const Color rejected = Color(0xFFB91C1C);
-  static const Color appeal = Color(0xFFCA8A04);
+  static const Color appeal = Color(0xFFB45309);
   static const Color neutral = Color(0xFF1E3A8A);
 
-  /// Soft, large corners. The main difference from the previous design.
-  static const double radius = 24;
-  static const double radiusSmall = 14;
+  /// Corners. Tight enough that a card reads as a block, not a pill.
+  static const double radius = 16;
+  static const double radiusSmall = 10;
 
   /// The outcome colour for a branch, derived from its title.
   static Color branchColor(String title) {
@@ -49,11 +47,9 @@ class LegalTheme {
     return neutral;
   }
 
-  /// A soft tinted fill derived from a branch colour.
-  static Color branchTint(Color color) => Color.alphaBlend(
-        color.withValues(alpha: 0.08),
-        Colors.white,
-      );
+  /// A very light wash of a branch colour, for card backgrounds.
+  static Color branchTint(Color color) =>
+      Color.alphaBlend(color.withValues(alpha: 0.06), Colors.white);
 }
 
 class StepDetailScreen extends StatefulWidget {
@@ -94,12 +90,10 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
         scrolledUnderElevation: 0,
         centerTitle: true,
         title: Text(
-          step.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          'المرحلة ${step.stepNumber}',
           style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
             color: LegalTheme.navy,
           ),
         ),
@@ -112,20 +106,24 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _StepHero(step: step, caseName: widget.caseName),
 
-            const SizedBox(height: 24),
+            // A real gap plus a rule, so the reader can see where one topic
+            // ends and the next begins without hunting for it.
+            const SizedBox(height: 22),
+            const Divider(height: 1, color: LegalTheme.hairline),
+            const SizedBox(height: 22),
 
-            // The main text gets a label and a marker bar instead of a card,
-            // so the page reads top to bottom like a document rather than a
-            // stack of boxes.
-            _ContentBlock(
-              label: 'الإجراءات العامة',
+            _SectionLabel(
+              text: 'الإجراءات العامة',
               accent: LegalTheme.navy,
+            ),
+            const SizedBox(height: 10),
+            _Panel(
               child: Text(
                 step.shortDescription.isNotEmpty
                     ? step.shortDescription
@@ -133,45 +131,55 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
                         'الإجراءات المقررة نظاماً.',
                 textAlign: TextAlign.right,
                 style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.85,
-                  color: LegalTheme.textSecondary,
+                  fontSize: 15.5,
+                  height: 1.9,
+                  color: LegalTheme.textPrimary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
 
             if (hasBranches) ...[
-              const SizedBox(height: 28),
-              _SectionHeading(
-                title: 'المسارات والسيناريوهات',
-                subtitle: step.branches.length == 1
-                    ? 'مسار واحد متاح'
-                    : '${step.branches.length} مسارات متاحة',
+              const SizedBox(height: 22),
+              const Divider(height: 1, color: LegalTheme.hairline),
+              const SizedBox(height: 22),
+
+              _SectionLabel(
+                text: 'المسارات والسيناريوهات',
                 accent: LegalTheme.gold,
+                trailing: step.branches.length == 1
+                    ? 'مسار واحد'
+                    : '${step.branches.length} مسارات',
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               _BranchSelector(
                 branches: step.branches,
                 selectedIndex: safeBranchIndex,
                 onSelect: (index) => setState(() => _selectedBranchIndex = index),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildBranchCard(step.branches[safeBranchIndex]),
             ],
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 22),
+            const Divider(height: 1, color: LegalTheme.hairline),
+            const SizedBox(height: 22),
 
-            _ContentBlock(
-              label: 'نصائح للمحامي',
+            _SectionLabel(
+              text: 'نصائح للمحامي',
               accent: LegalTheme.gold,
+            ),
+            const SizedBox(height: 10),
+            _Panel(
               child: const Text(
                 'تأكد من توقيع الموكل على كافة التوكيلات الرسمية والتحقق من '
                 'صحة تواريخ المستندات وسلامتها قبل إيداع الصحيفة أمام قلم الكتاب.',
                 textAlign: TextAlign.right,
                 style: TextStyle(
-                  fontSize: 15,
-                  height: 1.85,
-                  color: LegalTheme.textSecondary,
+                  fontSize: 15.5,
+                  height: 1.9,
+                  color: LegalTheme.textPrimary,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -208,38 +216,41 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
   Widget _buildBranchCard(StepBranch branch) {
     final accent = LegalTheme.branchColor(branch.title);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-      decoration: BoxDecoration(
-        color: LegalTheme.branchTint(accent),
-        borderRadius: BorderRadius.circular(LegalTheme.radius),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
-      ),
+    return _Panel(
+      tint: LegalTheme.branchTint(accent),
+      borderColor: accent.withValues(alpha: 0.22),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The outcome is the most useful fact on this card, so it leads: a
-          // solid pill carrying the branch name.
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Text(
-                branch.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13.5,
+          // A bar plus the name: the outcome is the one fact a reader needs
+          // before the detail below it.
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  branch.title,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15.5,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Text(
             branch.description.isEmpty
                 ? 'لم يتم تحديد تفاصيل لهذا المسار.'
@@ -247,57 +258,36 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
             textAlign: TextAlign.right,
             style: const TextStyle(
               fontSize: 15,
-              height: 1.85,
+              height: 1.9,
               color: LegalTheme.textPrimary,
             ),
           ),
+
           if (branch.subSteps.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            const Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'المحطات المتتالية',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: LegalTheme.textMuted,
-                ),
+            const SizedBox(height: 18),
+            // A rule inside the card separates the prose from the ordered
+            // stations, which are a different kind of content.
+            Divider(height: 1, color: accent.withValues(alpha: 0.18)),
+            const SizedBox(height: 14),
+            const Text(
+              'المحطات المتتالية',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: LegalTheme.textMuted,
               ),
             ),
             const SizedBox(height: 12),
-            // A dot per station rather than a filled numbered circle: quieter
-            // across a long list, and the order is already clear from RTL.
-            ...branch.subSteps.map(
-              (station) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        station,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.7,
-                          color: LegalTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.only(top: 7),
-                      decoration: BoxDecoration(
-                        color: accent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ],
+            // Numbered, because a reader following a procedure needs to know
+            // which station comes first, second and third.
+            ...branch.subSteps.asMap().entries.map(
+                  (entry) => _StationRow(
+                    number: entry.key + 1,
+                    text: entry.value,
+                    accent: accent,
+                  ),
                 ),
-              ),
-            ),
           ],
         ],
       ),
@@ -305,7 +295,146 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
   }
 }
 
-/// The case name and step number, shown as a strong opening block.
+/// One numbered station inside a branch.
+class _StationRow extends StatelessWidget {
+  final int number;
+  final String text;
+  final Color accent;
+
+  const _StationRow({
+    required this.number,
+    required this.text,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The number sits on the right in this RTL layout, which is where
+          // the eye starts.
+          Container(
+            width: 26,
+            height: 26,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$number',
+              style: TextStyle(
+                color: accent,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                text,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  height: 1.75,
+                  color: LegalTheme.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A section title with a coloured marker and an optional count on the left.
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final Color accent;
+  final String? trailing;
+
+  const _SectionLabel({
+    required this.text,
+    required this.accent,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (trailing != null) ...[
+          Text(
+            trailing!,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: LegalTheme.textMuted,
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+        Expanded(
+          child: Text(
+            text,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: LegalTheme.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A white block. One box style, so every section on the page matches.
+class _Panel extends StatelessWidget {
+  final Widget child;
+  final Color tint;
+  final Color borderColor;
+  final EdgeInsetsGeometry padding;
+
+  const _Panel({
+    required this.child,
+    this.tint = LegalTheme.surface,
+    this.borderColor = LegalTheme.hairline,
+    this.padding = const EdgeInsets.fromLTRB(16, 16, 16, 18),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(LegalTheme.radius),
+        border: Border.all(color: borderColor),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// The case name and step title, shown as a strong opening block.
 class _StepHero extends StatelessWidget {
   final CaseStepEntity step;
   final String caseName;
@@ -316,49 +445,28 @@ class _StepHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [LegalTheme.navy, LegalTheme.navyDark],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
+        color: LegalTheme.navy,
         borderRadius: BorderRadius.circular(LegalTheme.radius),
-        boxShadow: [
-          BoxShadow(
-            color: LegalTheme.navy.withValues(alpha: 0.22),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The case name is context rather than the headline, so it reads as
-          // a quiet tag above the step title.
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Text(
-              caseName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 12.5,
-              ),
+          Text(
+            caseName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
             ),
           ),
-          const SizedBox(height: 16),
-          // A gold badge for the number: while reading a long case the step
-          // position is the one thing a user looks for first.
+          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
@@ -367,25 +475,27 @@ class _StepHero extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 21,
-                    height: 1.4,
+                    fontSize: 20,
+                    height: 1.45,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
+              // The step number is what a reader checks first when moving
+              // through a long case, so it gets the only accent on the page.
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: LegalTheme.gold,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${step.stepNumber}',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -398,102 +508,7 @@ class _StepHero extends StatelessWidget {
   }
 }
 
-/// A label above content, with no card around it.
-class _ContentBlock extends StatelessWidget {
-  final String label;
-  final Color accent;
-  final Widget child;
-
-  const _ContentBlock({
-    required this.label,
-    required this.accent,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w800,
-                color: LegalTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            // A solid marker bar rather than a circle: it reads as a heading
-            // mark, not a button, so it does not look tappable.
-            Container(
-              width: 6,
-              height: 22,
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        child,
-      ],
-    );
-  }
-}
-
-/// A heading for a section with more going on, like the branch list.
-class _SectionHeading extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color accent;
-
-  const _SectionHeading({
-    required this.title,
-    required this.subtitle,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(
-          subtitle,
-          style: const TextStyle(
-            fontSize: 12.5,
-            color: LegalTheme.textMuted,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: LegalTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Container(
-          width: 6,
-          height: 24,
-          decoration: BoxDecoration(
-            color: accent,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Horizontal branch picker, laid out RTL so the first branch sits on the right.
+/// Branch picker, laid out RTL so the first branch sits on the right.
 class _BranchSelector extends StatelessWidget {
   final List<StepBranch> branches;
   final int selectedIndex;
@@ -508,7 +523,7 @@ class _BranchSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44,
+      height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         // reverse: true places index 0 on the right in an RTL context.
@@ -523,14 +538,14 @@ class _BranchSelector extends StatelessWidget {
           return GestureDetector(
             onTap: () => onSelect(index),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+              duration: const Duration(milliseconds: 160),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected ? accent : LegalTheme.surface,
                 borderRadius: BorderRadius.circular(LegalTheme.radiusSmall),
                 border: Border.all(
-                  color: isSelected ? accent : const Color(0xFFE2E8F0),
+                  color: isSelected ? accent : LegalTheme.hairline,
                 ),
               ),
               child: Text(
