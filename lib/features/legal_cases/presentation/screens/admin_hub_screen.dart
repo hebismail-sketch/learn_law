@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import '../../../../core/injection_container.dart';
+import '../../../../core/sync/local_data_source.dart';
 import '../widgets/roadmap_editor.dart';
 
 class AdminHubScreen extends StatefulWidget {
@@ -11,7 +13,9 @@ class AdminHubScreen extends StatefulWidget {
 }
 
 class _AdminHubScreenState extends State<AdminHubScreen> {
-  final _supabase = Supabase.instance.client;
+  // Writes go to the local database and are queued for sync, so the admin
+  // screens work with no network exactly like the rest of the app.
+  final LocalDataSource _local = sl<LocalDataSource>();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -69,10 +73,14 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   Future<void> _fetchCategories() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _supabase.from('categories').select().order('name');
+      final rows = await _local.getCategories();
       if (!mounted) return;
       setState(() {
-        _categories = List<Map<String, dynamic>>.from(response);
+        _categories = rows
+            .map((r) => <String, dynamic>{'id': r.id, 'name': r.name})
+            .toList();
+        _categories.sort((a, b) => (a['name'] as String)
+            .compareTo(b['name'] as String));
         if (_categories.isNotEmpty) {
           _selectedCategoryId = _categories.first['id'];
           _fetchSubcategories(_selectedCategoryId!);
@@ -93,14 +101,14 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   // Fetch subcategories for the selected category
   Future<void> _fetchSubcategories(String categoryId) async {
     try {
-      final response = await _supabase
-          .from('subcategories')
-          .select()
-          .eq('category_id', categoryId)
-          .order('name');
+      final rows = await _local.getSubcategories(categoryId);
       if (!mounted) return;
       setState(() {
-        _subcategories = List<Map<String, dynamic>>.from(response);
+        _subcategories = rows
+            .map((r) => <String, dynamic>{'id': r.id, 'name': r.name})
+            .toList();
+        _subcategories.sort(
+            (a, b) => (a['name'] as String).compareTo(b['name'] as String));
         _selectedSubcategoryId =
             _subcategories.isNotEmpty ? _subcategories.first['id'] : null;
         _isLoading = false;
@@ -140,17 +148,14 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
               setState(() => _isLoading = true);
               try {
-                final inserted = await _supabase
-                    .from('categories')
-                    .insert({'name': name})
-                    .select()
-                    .single();
+                final id = await _local.insertCategory(name: name);
                 _showSnackBar('تمت إضافة التصنيف بنجاح');
                 await _fetchCategories();
+                if (!mounted) return;
                 setState(() {
-                  _selectedCategoryId = inserted['id'];
+                  _selectedCategoryId = id;
                 });
-                _fetchSubcategories(_selectedCategoryId!);
+                _fetchSubcategories(id);
               } catch (e) {
                 setState(() => _isLoading = false);
                 _showSnackBar('فشل إضافة التصنيف: $e', isError: true);
@@ -195,18 +200,15 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
               setState(() => _isLoading = true);
               try {
-                final inserted = await _supabase
-                    .from('subcategories')
-                    .insert({
-                      'category_id': _selectedCategoryId,
-                      'name': name,
-                    })
-                    .select()
-                    .single();
+                final id = await _local.insertSubcategory(
+                  categoryId: _selectedCategoryId!,
+                  name: name,
+                );
                 _showSnackBar('تمت إضافة القسم الفرعي بنجاح');
                 await _fetchSubcategories(_selectedCategoryId!);
+                if (!mounted) return;
                 setState(() {
-                  _selectedSubcategoryId = inserted['id'];
+                  _selectedSubcategoryId = id;
                 });
               } catch (e) {
                 setState(() => _isLoading = false);
@@ -235,41 +237,29 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     setState(() => _isSaving = true);
     try {
       // 1. Insert legal case
-      final caseResponse = await _supabase
-          .from('legal_cases')
-          .insert({
-            'subcategory_id': _selectedSubcategoryId,
-            'title': title,
-            'description': _caseDescController.text.trim(),
-          })
-          .select()
-          .single();
+      final caseId = await _local.insertLegalCase(
+        subcategoryId: _selectedSubcategoryId!,
+        title: title,
+        description: _caseDescController.text.trim(),
+      );
 
-      final caseId = caseResponse['id'];
-
-      // 2. Prepare steps payload
-      final List<Map<String, dynamic>> stepsPayload = [];
+      // 2. Insert the steps, keeping the on-screen order as step_number.
       for (int i = 0; i < _stepInputs.length; i++) {
         final stepInput = _stepInputs[i];
         final stepTitle = stepInput.titleController.text.trim();
         final stepDesc = stepInput.descController.text.trim();
 
         if (stepTitle.isNotEmpty) {
-          stepsPayload.add({
-            'case_id': caseId,
-            'step_number': i + 1,
-            'title': stepTitle,
-            'short_description': encodeStepDescription(
+          await _local.insertCaseStep(
+            caseId: caseId,
+            stepNumber: i + 1,
+            title: stepTitle,
+            shortDescription: encodeStepDescription(
               description: stepDesc,
               branches: stepInput.branches,
             ),
-          });
+          );
         }
-      }
-
-      // 3. Batch insert steps if present
-      if (stepsPayload.isNotEmpty) {
-        await _supabase.from('case_steps').insert(stepsPayload);
       }
 
       setState(() => _isSaving = false);
@@ -337,7 +327,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'تسجيل الخروج',
             onPressed: () async {
-              await _supabase.auth.signOut();
+              await Supabase.instance.client.auth.signOut();
               if (!context.mounted) return;
               if (Navigator.canPop(context)) {
                 Navigator.pop(context);

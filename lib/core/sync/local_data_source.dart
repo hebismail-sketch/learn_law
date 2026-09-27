@@ -32,6 +32,11 @@ abstract class LocalDataSource {
 
   Future<List<LocalSubcategory>> getSubcategories(String categoryId);
 
+  /// Looks a single subcategory up by id, or null when it is missing or
+  /// deleted. Needed when only the child id is known, for example when
+  /// resolving the folder path of a case.
+  Future<LocalSubcategory?> findSubcategory(String id);
+
   Future<String> insertSubcategory({
     required String categoryId,
     required String name,
@@ -208,6 +213,13 @@ class LocalDataSourceImpl implements LocalDataSource {
                 t.categoryId.equals(categoryId) & t.deletedAt.isNull(),
           ))
         .get();
+  }
+
+  @override
+  Future<LocalSubcategory?> findSubcategory(String id) {
+    return (db.select(db.subcategories)
+          ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
+        .getSingleOrNull();
   }
 
   @override

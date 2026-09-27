@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../../core/sync/local_data_source.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../widgets/roadmap_editor.dart';
+import '../../../../core/injection_container.dart';
 
 class AdminEditCaseScreen extends StatefulWidget {
   final LegalCaseEntity legalCase;
@@ -16,7 +18,9 @@ class AdminEditCaseScreen extends StatefulWidget {
 }
 
 class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
-  final _supabase = Supabase.instance.client;
+  // Writes go to the local database and are queued for sync, so the admin
+  // screens work with no network exactly like the rest of the app.
+  final LocalDataSource _local = sl<LocalDataSource>();
 
   late TextEditingController _titleController;
   late TextEditingController _descController;
@@ -50,29 +54,22 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   // يجلب اسم القسم الفرعي والقسم الرئيسي الذي يقع تحته
   Future<void> _fetchFolderPath() async {
     try {
-      final subRes = await _supabase
-          .from('subcategories')
-          .select('id, name, category_id')
-          .eq('id', widget.legalCase.subcategoryId)
-          .limit(1);
-      if (subRes.isEmpty) {
+      final subId = widget.legalCase.subcategoryId;
+      final sub = await _local.findSubcategory(subId);
+      if (sub == null) {
         if (mounted) setState(() => _isFolderLoading = false);
         return;
       }
-      final sub = subRes.first;
-      final catRes = await _supabase
-          .from('categories')
-          .select('id, name')
-          .eq('id', sub['category_id'])
-          .limit(1);
+      final categories = await _local.getCategories();
+      final category = categories
+          .where((c) => c.id == sub.categoryId)
+          .firstOrNull;
       if (!mounted) return;
       setState(() {
-        _subcategoryId = sub['id']?.toString();
-        _subcategoryName = (sub['name'] ?? '').toString();
-        if (catRes.isNotEmpty) {
-          _categoryId = catRes.first['id']?.toString();
-          _categoryName = (catRes.first['name'] ?? '').toString();
-        }
+        _subcategoryId = sub.id;
+        _subcategoryName = sub.name;
+        _categoryId = category?.id;
+        _categoryName = category?.name ?? '';
         _isFolderLoading = false;
       });
     } catch (e) {
@@ -127,7 +124,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     if (name == currentName) return;
     setState(() => _isFolderSaving = true);
     try {
-      await _supabase.from(table).update({'name': name}).eq('id', id);
+      await (isCategory
+          ? _local.updateCategory(id: id, name: name)
+          : _local.updateSubcategory(id: id, name: name));
       if (!mounted) return;
       setState(() {
         if (isCategory) {
@@ -208,21 +207,20 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   }
 
   // حذف تتابعي: القضايا ← مراحلها ← الأقسام الفرعية ← التصنيف
+  // كل مستوى منLevels يتعامل مع الـ soft delete ويضع كل صف في الطابور، فتبقى
+  // الأجهزة الأخرى على علم بالحذف.
   Future<void> _deleteCategoryTree(String categoryId) async {
-    final subs = await _supabase.from('subcategories').select('id').eq('category_id', categoryId);
-    for (final sub in subs) {
-      await _deleteSubcategoryTree(sub['id'] as String);
+    for (final sub in await _local.getSubcategories(categoryId)) {
+      await _deleteSubcategoryTree(sub.id);
     }
-    await _supabase.from('categories').delete().eq('id', categoryId);
+    await _local.deleteCategory(id: categoryId);
   }
 
   Future<void> _deleteSubcategoryTree(String subId) async {
-    final cases = await _supabase.from('legal_cases').select('id').eq('subcategory_id', subId);
-    for (final c in cases) {
-      await _supabase.from('case_steps').delete().eq('case_id', c['id']);
+    for (final legalCase in await _local.getLegalCases(subId)) {
+      await _local.deleteLegalCase(id: legalCase.id);
     }
-    await _supabase.from('legal_cases').delete().eq('subcategory_id', subId);
-    await _supabase.from('subcategories').delete().eq('id', subId);
+    await _local.deleteSubcategory(id: subId);
   }
 
   @override
@@ -241,13 +239,15 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   Future<void> _fetchCaseSteps() async {
     setState(() => _isLoading = true);
     try {
-      final response = await _supabase
-          .from('case_steps')
-          .select()
-          .eq('case_id', widget.legalCase.id)
-          .order('step_number', ascending: true);
-
-      final rawList = List<Map<String, dynamic>>.from(response);
+      final rawList = (await _local.getCaseSteps(widget.legalCase.id))
+          .map((s) => <String, dynamic>{
+                'id': s.id,
+                'case_id': s.caseId,
+                'step_number': s.stepNumber,
+                'title': s.title,
+                'short_description': s.shortDescription,
+              })
+          .toList();
 
       // Parse branches if encoded in short_description
       for (final step in rawList) {
@@ -340,14 +340,15 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     setState(() => _isSaving = true);
     try {
       // 1. Update legal case info
-      await _supabase.from('legal_cases').update({
-        'title': title,
-        'description': _descController.text.trim(),
-      }).eq('id', widget.legalCase.id);
+      await _local.updateLegalCase(
+        id: widget.legalCase.id,
+        title: title,
+        description: _descController.text.trim(),
+      );
 
-      // 2. Drop steps the admin deleted in the editor.
+      // 2. Soft delete steps the admin deleted in the editor.
       for (final id in _deletedStepIds) {
-        await _supabase.from('case_steps').delete().eq('id', id);
+        await _local.deleteCaseStep(id: id);
       }
       _deletedStepIds.clear();
 
@@ -360,35 +361,37 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         final key = _stepKey(step, index);
         final branches = _stepBranches[key] ?? <BranchInputData>[];
 
-        final payload = <String, dynamic>{
-          'case_id': widget.legalCase.id,
-          'step_number': index + 1,
-          'title': step['title'] ?? '',
-          'short_description': encodeStepDescription(
-            stepNumber: index + 1,
-            description: (step['short_description'] ?? '').toString(),
-            branches: branches,
-          ),
-        };
+        final shortDescription = encodeStepDescription(
+          stepNumber: index + 1,
+          description: (step['short_description'] ?? '').toString(),
+          branches: branches,
+        );
+        final stepTitle = (step['title'] ?? '').toString();
 
         final id = step['id']?.toString();
         if (id == null || id.isEmpty) {
-          final inserted = await _supabase
-              .from('case_steps')
-              .insert(payload)
-              .select()
-              .single();
+          final newId = await _local.insertCaseStep(
+            caseId: widget.legalCase.id,
+            stepNumber: index + 1,
+            title: stepTitle,
+            shortDescription: shortDescription,
+          );
 
-          step['id'] = inserted['id'];
+          step['id'] = newId;
           step['step_number'] = index + 1;
 
           // Re-key the branch model now that the step has a real id.
-          if (key != step['id'].toString()) {
-            _stepBranches[step['id'].toString()] = branches;
+          if (key != newId) {
+            _stepBranches[newId] = branches;
             _stepBranches.remove(key);
           }
         } else {
-          await _supabase.from('case_steps').update(payload).eq('id', id);
+          await _local.updateCaseStep(
+            id: id,
+            stepNumber: index + 1,
+            title: stepTitle,
+            shortDescription: shortDescription,
+          );
           step['step_number'] = index + 1;
         }
       }
