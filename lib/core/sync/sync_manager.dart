@@ -153,6 +153,10 @@ class SyncManager {
           .gt('updated_at', since.toUtc().toIso8601String())
           .order('updated_at', ascending: true);
 
+      // Rows arrive including soft-deleted ones. That is deliberate: a delete
+      // is how this device learns that a row another device removed is gone.
+      // _mergeRemoteRow applies deleted_at, and the repository filters it out
+      // of the UI reads.
       for (final row in (response as List).cast<Map<String, dynamic>>()) {
         await _mergeRemoteRow(table, row);
         pulled++;
