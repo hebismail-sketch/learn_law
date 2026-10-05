@@ -48,3 +48,32 @@ build/
 android/build/
 android/.gradle/
 
+# Local admin prototypes, generated fragments, and scratch files
+/admin_cases.html
+/admin_tree.html
+/admin_v2.html
+/admin_hub_screen.backup.dart
+/_chk.js
+/_t.js
+/_v2_*.js
+/_v2_*.html
+/_v2_*.txt
+/qa.mjs
+/qa2.mjs
+/equipment_case_payload.json
+/lib/features/legal_cases/presentation/screens/step_detail_v2.dart
+
+# Local Supabase maintenance scripts and case-data exports
+/scripts/_backup_*.json
+/scripts/_*.mjs
+/scripts/_test_parse.js
+/scripts/*payload*.json
+/scripts/talaq_darar_part*.json
+/scripts/test_case.txt
+/scripts/check_subs.ps1
+/scripts/import_case.ps1
+/scripts/import_case_md.ps1
+/scripts/list_cats.ps1
+/scripts/push_talaq.ps1
+/scripts/qa.mjs
+/scripts/serve.mjs
