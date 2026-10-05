@@ -14,10 +14,7 @@ import 'branch_detail_screen.dart';
 class CaseRoadmapScreen extends StatelessWidget {
   final LegalCaseEntity legalCase;
 
-  const CaseRoadmapScreen({
-    super.key,
-    required this.legalCase,
-  });
+  const CaseRoadmapScreen({super.key, required this.legalCase});
 
   @override
   Widget build(BuildContext context) {
@@ -35,26 +32,20 @@ class CaseRoadmapScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 0,
         backgroundColor: const Color(0xFF0B101D),
-        iconTheme: const IconThemeData(
-          color: Colors.white,
-        ),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
           // RepaintBoundary يمنع إعادة رسم نقاط الخلفية مع كل حركة سكرول
           // (كانت من أسباب تهنيج الإيمولاتور).
           const Positioned.fill(
-            child: RepaintBoundary(
-              child: _GridBackgroundPattern(),
-            ),
+            child: RepaintBoundary(child: _GridBackgroundPattern()),
           ),
           BlocBuilder<LegalCubit, LegalState>(
             builder: (context, state) {
               if (state is LegalLoading) {
                 return const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF38BDF8),
-                  ),
+                  child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
                 );
               }
 
@@ -131,16 +122,11 @@ class CaseRoadmapScreen extends StatelessWidget {
 
   Widget _buildHeaderBadge(int count) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF161F36),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF2E3D66),
-        ),
+        border: Border.all(color: const Color(0xFF2E3D66)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.3),
@@ -152,10 +138,7 @@ class CaseRoadmapScreen extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 6,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B),
               borderRadius: BorderRadius.circular(20),
@@ -214,9 +197,7 @@ class _GridBackgroundPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _DotGridPainter(),
-    );
+    return CustomPaint(painter: _DotGridPainter());
   }
 }
 
@@ -232,11 +213,7 @@ class _DotGridPainter extends CustomPainter {
 
     for (double x = spacing / 2; x < size.width; x += spacing) {
       for (double y = spacing / 2; y < size.height; y += spacing) {
-        canvas.drawCircle(
-          Offset(x, y),
-          1.2,
-          paint,
-        );
+        canvas.drawCircle(Offset(x, y), 1.2, paint);
       }
     }
   }
@@ -262,32 +239,20 @@ class _RoadmapGraph extends StatelessWidget {
     required this.steps,
   });
 
-  void _openStep(
-      BuildContext context,
-      CaseStepEntity step,
-      ) {
+  void _openStep(BuildContext context, CaseStepEntity step) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => StepDetailScreen(
-          caseName: caseName,
-          step: step,
-        ),
+        builder: (_) => StepDetailScreen(caseName: caseName, step: step),
       ),
     );
   }
 
-  void _openBranch(
-      BuildContext context,
-      StepBranch branch,
-      ) {
+  void _openBranch(BuildContext context, StepBranch branch) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => BranchDetailScreen(
-          caseName: caseName,
-          branch: branch,
-        ),
+        builder: (_) => BranchDetailScreen(caseName: caseName, branch: branch),
       ),
     );
   }
@@ -299,10 +264,7 @@ class _RoadmapGraph extends StatelessWidget {
         for (int index = 0; index < steps.length; index++) ...[
           _MainStepNode(
             step: steps[index],
-            onTap: () => _openStep(
-              context,
-              steps[index],
-            ),
+            onTap: () => _openStep(context, steps[index]),
           ),
 
           // فروع الخطوة تظهر مباشرة تحتها (وليس بينها وبين الخطوة التالية)
@@ -325,72 +287,19 @@ class _MainStepNode extends StatelessWidget {
   final CaseStepEntity step;
   final VoidCallback onTap;
 
-  const _MainStepNode({
-    required this.step,
-    required this.onTap,
-  });
+  const _MainStepNode({required this.step, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final isFirst = step.stepNumber == 1;
 
-    final themes = [
-      {
-        'color': const Color(0xFF10B981),
-        'glow': const Color(0xFF059669),
-        'badgeBg': const Color(0xFF064E3B),
-        'badgeText': const Color(0xFF34D399),
-        'icon': Icons.assignment_turned_in_rounded,
-      },
-      {
-        'color': const Color(0xFF6366F1),
-        'glow': const Color(0xFF4F46E5),
-        'badgeBg': const Color(0xFF312E81),
-        'badgeText': const Color(0xFFA5B4FC),
-        'icon': Icons.account_balance_rounded,
-      },
-      {
-        'color': const Color(0xFF0EA5E9),
-        'glow': const Color(0xFF0284C7),
-        'badgeBg': const Color(0xFF082F49),
-        'badgeText': const Color(0xFF38BDF8),
-        'icon': Icons.gavel_rounded,
-      },
-      {
-        'color': const Color(0xFF8B5CF6),
-        'glow': const Color(0xFF7C3AED),
-        'badgeBg': const Color(0xFF2E1065),
-        'badgeText': const Color(0xFFC4B5FD),
-        'icon': Icons.find_in_page_rounded,
-      },
-      {
-        'color': const Color(0xFFF59E0B),
-        'glow': const Color(0xFFD97706),
-        'badgeBg': const Color(0xFF451A03),
-        'badgeText': const Color(0xFFFCD34D),
-        'icon': Icons.auto_stories_rounded,
-      },
-    ];
+    final theme = StepPalette.of(step.stepNumber);
 
-    final theme = themes[(step.stepNumber - 1) % themes.length];
-
-    final Color nodeColor = isFirst
-        ? const Color(0xFF10B981)
-        : theme['color'] as Color;
-
-    final Color glowColor = isFirst
-        ? const Color(0xFF059669)
-        : theme['glow'] as Color;
-
-    final Color badgeBg = isFirst
-        ? const Color(0xFF064E3B)
-        : theme['badgeBg'] as Color;
-
-    final Color badgeTextColor = isFirst
-        ? const Color(0xFF34D399)
-        : theme['badgeText'] as Color;
-
-    final IconData iconData = theme['icon'] as IconData;
+    final Color nodeColor = theme.color;
+    final Color glowColor = theme.glow;
+    final Color badgeBg = theme.badgeBg;
+    final Color badgeTextColor = theme.badgeText;
+    final IconData iconData = theme.icon;
 
     return InkWell(
       onTap: onTap,
@@ -398,112 +307,103 @@ class _MainStepNode extends StatelessWidget {
       // عزل عقدة الخطوة (ظلالها الثقيلة) حتى لا يعاد رسم باقي الشاشة معها.
       child: RepaintBoundary(
         child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 380,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: nodeColor,
-                boxShadow: [
-                  // ظل أخف: الـ blur الكبير + spread كان يخنق الإيمولاتور.
-                  BoxShadow(
-                    color: glowColor.withOpacity(0.35),
-                    blurRadius: 12,
-                    spreadRadius: 1,
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Column(
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: nodeColor,
+                  boxShadow: [
+                    // ظل أخف: الـ blur الكبير + spread كان يخنق الإيمولاتور.
+                    BoxShadow(
+                      color: glowColor.withOpacity(0.35),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.35),
+                    width: 2.5,
                   ),
-                ],
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.35),
-                  width: 2.5,
                 ),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    iconData,
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0F172A),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${step.stepNumber}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(iconData, color: Colors.white, size: 30),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0F172A),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${step.stepNumber}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isFirst
+                      ? '✓ تم البدء والإعداد'
+                      : 'المرحلة (${step.stepNumber})',
+                  style: TextStyle(
+                    color: badgeTextColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: badgeBg,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                isFirst
-                    ? '✓ تم البدء والإعداد'
-                    : 'المرحلة (${step.stepNumber})',
-                style: TextStyle(
-                  color: badgeTextColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              step.title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
-              ),
-            ),
-            if (step.shortDescription.isNotEmpty) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
-                step.shortDescription,
+                step.title,
                 textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 13,
-                  height: 1.4,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
                 ),
               ),
+              if (step.shortDescription.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  step.shortDescription,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -517,22 +417,17 @@ class _StepConnection extends StatelessWidget {
   final CaseStepEntity step;
   final void Function(StepBranch branch) onBranchTap;
 
-  const _StepConnection({
-    required this.step,
-    required this.onBranchTap,
-  });
+  const _StepConnection({required this.step, required this.onBranchTap});
 
   @override
   Widget build(BuildContext context) {
     final branches = step.branches
         .where(
           (branch) =>
-      branch.title.trim().isNotEmpty ||
-          branch.subSteps.any(
-                (item) => item.trim().isNotEmpty,
-          ) ||
-          branch.branches.isNotEmpty,
-    )
+              branch.title.trim().isNotEmpty ||
+              branch.subSteps.any((item) => item.trim().isNotEmpty) ||
+              branch.branches.isNotEmpty,
+        )
         .toList();
 
     if (branches.isEmpty) {
@@ -540,9 +435,7 @@ class _StepConnection extends StatelessWidget {
         height: 58,
         width: 20,
         child: CustomPaint(
-          painter: _DashedVerticalPainter(
-            color: Color(0xFF38BDF8),
-          ),
+          painter: _DashedVerticalPainter(color: Color(0xFF38BDF8)),
         ),
       );
     }
@@ -581,9 +474,8 @@ class _BranchSection extends StatelessWidget {
         const gap = 12.0;
 
         final rawLaneWidth =
-            (constraints.maxWidth -
-                (gap * (branches.length - 1))) /
-                branches.length;
+            (constraints.maxWidth - (gap * (branches.length - 1))) /
+            branches.length;
 
         final laneWidth = math.max<double>(
           145.0,
@@ -591,8 +483,7 @@ class _BranchSection extends StatelessWidget {
         );
 
         final totalWidth =
-            laneWidth * branches.length +
-                gap * (branches.length - 1);
+            laneWidth * branches.length + gap * (branches.length - 1);
 
         final content = SizedBox(
           width: totalWidth,
@@ -611,11 +502,8 @@ class _BranchSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  for (int index = 0;
-                  index < branches.length;
-                  index++) ...[
-                    if (index > 0)
-                      const SizedBox(width: gap),
+                  for (int index = 0; index < branches.length; index++) ...[
+                    if (index > 0) const SizedBox(width: gap),
                     SizedBox(
                       width: laneWidth,
                       child: _BranchLane(
@@ -641,9 +529,7 @@ class _BranchSection extends StatelessWidget {
                 height: 48,
                 width: 20,
                 child: CustomPaint(
-                  painter: _DashedArrowPainter(
-                    color: Color(0xFF38BDF8),
-                  ),
+                  painter: _DashedArrowPainter(color: Color(0xFF38BDF8)),
                 ),
               ),
             ],
@@ -651,9 +537,7 @@ class _BranchSection extends StatelessWidget {
         );
 
         if (totalWidth <= constraints.maxWidth) {
-          return Center(
-            child: content,
-          );
+          return Center(child: content);
         }
 
         return SingleChildScrollView(
@@ -682,19 +566,15 @@ class _BranchLane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasSubSteps = branch.subSteps.any(
-      (step) => step.trim().isNotEmpty,
-    );
+    final hasSubSteps = branch.subSteps.any((step) => step.trim().isNotEmpty);
 
     final nestedBranches = branch.branches
         .where(
           (child) =>
-      child.title.trim().isNotEmpty ||
-          child.subSteps.any(
-                (item) => item.trim().isNotEmpty,
-          ) ||
-          child.branches.isNotEmpty,
-    )
+              child.title.trim().isNotEmpty ||
+              child.subSteps.any((item) => item.trim().isNotEmpty) ||
+              child.branches.isNotEmpty,
+        )
         .toList();
 
     final Color accentColor = branchNumber == 1
@@ -714,7 +594,6 @@ class _BranchLane extends StatelessWidget {
 
         // NOTE: لا نقسم خصائص الفرع إلى عقد منفصلة — الضغط على اسم الفرع
         // يفتح صفحة واحدة تحتوي كل محتواه (الوصف + المحطات + الفروع الفرعية).
-
         if (nestedBranches.isNotEmpty) ...[
           const SizedBox(height: 12),
 
@@ -738,7 +617,7 @@ class _BranchTitle extends StatelessWidget {
   final Color accentColor;
   final int branchNumber;
   final VoidCallback onTap;
-final bool hasSubSteps;
+  final bool hasSubSteps;
 
   const _BranchTitle({
     required this.title,
@@ -755,16 +634,11 @@ final bool hasSubSteps;
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 7,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: accentColor.withOpacity(0.15),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: accentColor.withOpacity(0.5),
-          ),
+          border: Border.all(color: accentColor.withOpacity(0.5)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -824,9 +698,7 @@ class _BranchForkConnector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width =
-        laneWidth * branchCount +
-            gap * (branchCount - 1);
+    final width = laneWidth * branchCount + gap * (branchCount - 1);
 
     return SizedBox(
       width: width,
@@ -861,9 +733,7 @@ class _BranchMergeConnector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width =
-        laneWidth * branchCount +
-            gap * (branchCount - 1);
+    final width = laneWidth * branchCount + gap * (branchCount - 1);
 
     return SizedBox(
       width: width,
@@ -909,12 +779,8 @@ class _ForkPainter extends CustomPainter {
 
     final centerX = size.width / 2;
 
-    for (int index = 0;
-    index < branchCount;
-    index++) {
-      final laneCenter =
-          index * (laneWidth + gap) +
-              laneWidth / 2;
+    for (int index = 0; index < branchCount; index++) {
+      final laneCenter = index * (laneWidth + gap) + laneWidth / 2;
 
       final path = Path()
         ..moveTo(centerX, 0)
@@ -927,27 +793,14 @@ class _ForkPainter extends CustomPainter {
           size.height,
         );
 
-      _drawDashedPath(
-        canvas,
-        path,
-        paint,
-      );
+      _drawDashedPath(canvas, path, paint);
 
-      _drawArrowHead(
-        canvas,
-        Offset(
-          laneCenter,
-          size.height,
-        ),
-        paint,
-      );
+      _drawArrowHead(canvas, Offset(laneCenter, size.height), paint);
     }
   }
 
   @override
-  bool shouldRepaint(
-      covariant _ForkPainter oldDelegate,
-      ) {
+  bool shouldRepaint(covariant _ForkPainter oldDelegate) {
     return oldDelegate.branchCount != branchCount ||
         oldDelegate.laneWidth != laneWidth ||
         oldDelegate.gap != gap ||
@@ -984,18 +837,11 @@ class _MergePainter extends CustomPainter {
 
     final centerX = size.width / 2;
 
-    for (int index = 0;
-    index < branchCount;
-    index++) {
-      final laneCenter =
-          index * (laneWidth + gap) +
-              laneWidth / 2;
+    for (int index = 0; index < branchCount; index++) {
+      final laneCenter = index * (laneWidth + gap) + laneWidth / 2;
 
       final path = Path()
-        ..moveTo(
-          laneCenter,
-          0,
-        )
+        ..moveTo(laneCenter, 0)
         ..cubicTo(
           laneCenter,
           size.height * 0.35,
@@ -1005,27 +851,14 @@ class _MergePainter extends CustomPainter {
           size.height,
         );
 
-      _drawDashedPath(
-        canvas,
-        path,
-        paint,
-      );
+      _drawDashedPath(canvas, path, paint);
 
-      _drawArrowHead(
-        canvas,
-        Offset(
-          centerX,
-          size.height,
-        ),
-        paint,
-      );
+      _drawArrowHead(canvas, Offset(centerX, size.height), paint);
     }
   }
 
   @override
-  bool shouldRepaint(
-      covariant _MergePainter oldDelegate,
-      ) {
+  bool shouldRepaint(covariant _MergePainter oldDelegate) {
     return oldDelegate.branchCount != branchCount ||
         oldDelegate.laneWidth != laneWidth ||
         oldDelegate.gap != gap ||
@@ -1040,9 +873,7 @@ class _MergePainter extends CustomPainter {
 class _DashedVerticalPainter extends CustomPainter {
   final Color color;
 
-  const _DashedVerticalPainter({
-    required this.color,
-  });
+  const _DashedVerticalPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1059,25 +890,16 @@ class _DashedVerticalPainter extends CustomPainter {
     double y = 0;
 
     while (y < size.height) {
-      final end = math.min(
-        y + dashLength,
-        size.height,
-      );
+      final end = math.min(y + dashLength, size.height);
 
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x, end),
-        paint,
-      );
+      canvas.drawLine(Offset(x, y), Offset(x, end), paint);
 
       y += dashLength + gap;
     }
   }
 
   @override
-  bool shouldRepaint(
-      covariant _DashedVerticalPainter oldDelegate,
-      ) {
+  bool shouldRepaint(covariant _DashedVerticalPainter oldDelegate) {
     return oldDelegate.color != color;
   }
 }
@@ -1089,9 +911,7 @@ class _DashedVerticalPainter extends CustomPainter {
 class _DashedArrowPainter extends CustomPainter {
   final Color color;
 
-  const _DashedArrowPainter({
-    required this.color,
-  });
+  const _DashedArrowPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1109,16 +929,9 @@ class _DashedArrowPainter extends CustomPainter {
     double y = 0;
 
     while (y < size.height - 10) {
-      final end = math.min(
-        y + dashLength,
-        size.height - 10,
-      );
+      final end = math.min(y + dashLength, size.height - 10);
 
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x, end),
-        paint,
-      );
+      canvas.drawLine(Offset(x, y), Offset(x, end), paint);
 
       y += dashLength + gap;
     }
@@ -1135,9 +948,7 @@ class _DashedArrowPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(
-      covariant _DashedArrowPainter oldDelegate,
-      ) {
+  bool shouldRepaint(covariant _DashedArrowPainter oldDelegate) {
     return oldDelegate.color != color;
   }
 }
@@ -1146,11 +957,7 @@ class _DashedArrowPainter extends CustomPainter {
 // DASHED PATH
 // ============================================================================
 
-void _drawDashedPath(
-    Canvas canvas,
-    Path path,
-    Paint paint,
-    ) {
+void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
   const dashLength = 5.0;
   const gap = 4.0;
 
@@ -1158,18 +965,9 @@ void _drawDashedPath(
     double distance = 0;
 
     while (distance < metric.length) {
-      final end = math.min(
-        distance + dashLength,
-        metric.length,
-      );
+      final end = math.min(distance + dashLength, metric.length);
 
-      canvas.drawPath(
-        metric.extractPath(
-          distance,
-          end,
-        ),
-        paint,
-      );
+      canvas.drawPath(metric.extractPath(distance, end), paint);
 
       distance += dashLength + gap;
     }
@@ -1180,27 +978,14 @@ void _drawDashedPath(
 // ARROW HEAD
 // ============================================================================
 
-void _drawArrowHead(
-    Canvas canvas,
-    Offset point,
-    Paint paint,
-    ) {
+void _drawArrowHead(Canvas canvas, Offset point, Paint paint) {
   const size = 5.0;
 
   canvas.drawPath(
     Path()
-      ..moveTo(
-        point.dx - size,
-        point.dy - size,
-      )
-      ..lineTo(
-        point.dx,
-        point.dy,
-      )
-      ..lineTo(
-        point.dx + size,
-        point.dy - size,
-      ),
+      ..moveTo(point.dx - size, point.dy - size)
+      ..lineTo(point.dx, point.dy)
+      ..lineTo(point.dx + size, point.dy - size),
     paint,
   );
 }
