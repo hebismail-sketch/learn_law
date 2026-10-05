@@ -8,10 +8,7 @@ import '../../../../core/injection_container.dart';
 class AdminEditCaseScreen extends StatefulWidget {
   final LegalCaseEntity legalCase;
 
-  const AdminEditCaseScreen({
-    super.key,
-    required this.legalCase,
-  });
+  const AdminEditCaseScreen({super.key, required this.legalCase});
 
   @override
   State<AdminEditCaseScreen> createState() => _AdminEditCaseScreenState();
@@ -45,7 +42,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.legalCase.name);
-    _descController = TextEditingController(text: widget.legalCase.description ?? '');
+    _descController = TextEditingController(
+      text: widget.legalCase.description ?? '',
+    );
     _subcategoryId = widget.legalCase.subcategoryId;
     _fetchCaseSteps();
     _fetchFolderPath();
@@ -92,8 +91,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isCategory ? 'تعديل اسم الفولدر الكبير' : 'تعديل اسم الفولدر',
-            textAlign: TextAlign.right),
+        title: Text(
+          isCategory ? 'تعديل اسم الفولدر الكبير' : 'تعديل اسم الفولدر',
+          textAlign: TextAlign.right,
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -152,8 +153,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isCategory ? 'حذف الفولدر الكبير' : 'حذف الفولدر',
-            textAlign: TextAlign.right),
+        title: Text(
+          isCategory ? 'حذف الفولدر الكبير' : 'حذف الفولدر',
+          textAlign: TextAlign.right,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +182,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
             child: const Text('إلغاء'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('حذف نهائي'),
           ),
@@ -240,19 +245,22 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     setState(() => _isLoading = true);
     try {
       final rawList = (await _local.getCaseSteps(widget.legalCase.id))
-          .map((s) => <String, dynamic>{
-                'id': s.id,
-                'case_id': s.caseId,
-                'step_number': s.stepNumber,
-                'title': s.title,
-                'short_description': s.shortDescription,
-              })
+          .map(
+            (s) => <String, dynamic>{
+              'id': s.id,
+              'case_id': s.caseId,
+              'step_number': s.stepNumber,
+              'title': s.title,
+              'short_description': s.shortDescription,
+            },
+          )
           .toList();
 
       // Parse branches if encoded in short_description
       for (final step in rawList) {
-        final decoded =
-            decodeStepDescription((step['short_description'] ?? '').toString());
+        final decoded = decodeStepDescription(
+          (step['short_description'] ?? '').toString(),
+        );
         step['short_description'] = decoded.description;
         step['branches'] = decoded.branches;
         _stepBranches[step['id'].toString()] = decoded.branches;
@@ -329,6 +337,28 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     }
   }
 
+  /// Re-points one branch's destination through [remap], recursing into the
+  /// branches nested inside it.
+  ///
+  /// A branch whose destination was dropped loses the link: that step is not
+  /// being saved, so the path has to end here. Keeping the stale number would
+  /// quietly redirect the path to whatever step took over the slot.
+  void _remapLink(BranchInputData branch, Map<int, int> remap) {
+    final target = branch.nextStepNumber;
+    if (target != null) {
+      final mapped = remap[target];
+      if (mapped == null) {
+        branch.nextStepNumber = null;
+        branch.nextStepTitle = null;
+      } else {
+        branch.nextStepNumber = mapped;
+      }
+    }
+    for (final sub in branch.subBranches) {
+      _remapLink(sub, remap);
+    }
+  }
+
   // Update case details and steps in Supabase
   Future<void> _saveChanges() async {
     final title = _titleController.text.trim();
@@ -355,14 +385,40 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
       // 3. Upsert every step in order. Existing rows are updated, steps added
       //    from the editor are inserted and keep their new ids so a second save
       //    updates them instead of duplicating.
+      //
+      //    A step with no title is skipped, so the survivors are renumbered to
+      //    a gapless 1..n first. The path links stored inside a step point at
+      //    other steps by number, so they are re-pointed through the same plan
+      //    before the descriptions are re-encoded — otherwise a link picked as
+      //    «to step 3» would end up on whichever stage slid into that slot.
+      final keeps = _steps
+          .map((s) => (s['title'] ?? '').toString().trim().isNotEmpty)
+          .toList();
+      final plan = renumberSteps(keeps);
+      final remap = plan.remap;
+      final numbers = plan.numbers;
+
       for (int i = 0; i < _steps.length; i++) {
+        final branches =
+            _stepBranches[_stepKey(_steps[i], i)] ?? <BranchInputData>[];
+        for (final branch in branches) {
+          _remapLink(branch, remap);
+        }
+      }
+
+      var saved = 0;
+      for (int i = 0; i < _steps.length; i++) {
+        if (!keeps[i]) continue;
+
         final step = _steps[i];
-        final index = i;
-        final key = _stepKey(step, index);
+        final key = _stepKey(step, i);
         final branches = _stepBranches[key] ?? <BranchInputData>[];
 
+        final stepNumber = numbers[saved];
+        saved++;
+
         final shortDescription = encodeStepDescription(
-          stepNumber: index + 1,
+          stepNumber: stepNumber,
           description: (step['short_description'] ?? '').toString(),
           branches: branches,
         );
@@ -372,13 +428,13 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         if (id == null || id.isEmpty) {
           final newId = await _local.insertCaseStep(
             caseId: widget.legalCase.id,
-            stepNumber: index + 1,
+            stepNumber: stepNumber,
             title: stepTitle,
             shortDescription: shortDescription,
           );
 
           step['id'] = newId;
-          step['step_number'] = index + 1;
+          step['step_number'] = stepNumber;
 
           // Re-key the branch model now that the step has a real id.
           if (key != newId) {
@@ -388,11 +444,11 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         } else {
           await _local.updateCaseStep(
             id: id,
-            stepNumber: index + 1,
+            stepNumber: stepNumber,
             title: stepTitle,
             shortDescription: shortDescription,
           );
-          step['step_number'] = index + 1;
+          step['step_number'] = stepNumber;
         }
       }
 
@@ -438,11 +494,13 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
 
     // Copy plain values out before the editor's controllers are disposed.
     final newSteps = result.steps
-        .map((s) => <String, dynamic>{
-              'id': null,
-              'title': s.titleController.text.trim(),
-              'short_description': s.descController.text.trim(),
-            })
+        .map(
+          (s) => <String, dynamic>{
+            'id': null,
+            'title': s.titleController.text.trim(),
+            'short_description': s.descController.text.trim(),
+          },
+        )
         .toList();
     final newBranches = result.steps
         .map((s) => s.branches.map(cloneBranch).toList())
@@ -487,7 +545,6 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     });
   }
 
-
   // صف فولدر واحد مع أيقونة تعديل وأيقونة سلة حذف بجانبها
   Widget _buildFolderRow({
     required IconData icon,
@@ -513,33 +570,47 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                Text(name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                ),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.edit_rounded, size: 20, color: Colors.blueGrey),
+            icon: const Icon(
+              Icons.edit_rounded,
+              size: 20,
+              color: Colors.blueGrey,
+            ),
             tooltip: 'تعديل اسم هذا الفولدر',
             onPressed: (_isFolderSaving || id == null)
                 ? null
                 : () => _renameFolder(
-                      id: id,
-                      table: isCategory ? 'categories' : 'subcategories',
-                      currentName: name,
-                      isCategory: isCategory,
-                    ),
+                    id: id,
+                    table: isCategory ? 'categories' : 'subcategories',
+                    currentName: name,
+                    isCategory: isCategory,
+                  ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded,
-                size: 20, color: Colors.redAccent),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              size: 20,
+              color: Colors.redAccent,
+            ),
             tooltip: 'حذف هذا الفولدر وكل ما بداخله',
             onPressed: (_isFolderSaving || id == null)
                 ? null
-                : () => _deleteFolder(
-                      id: id, name: name, isCategory: isCategory),
+                : () =>
+                      _deleteFolder(id: id, name: name, isCategory: isCategory),
           ),
         ],
       ),
@@ -581,7 +652,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                 children: [
                   // Case Info card
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -589,7 +662,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                         children: [
                           const Text(
                             'بيانات القضية',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                           const Divider(),
                           TextField(
@@ -619,7 +695,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
 
                   // مسار الفولدر: من أكبر فولدر حتى الفولدر الذي به هذه القضية
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -627,7 +705,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                         children: [
                           const Text(
                             'مسار الفولدر',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                           const Divider(),
                           if (_isFolderLoading)
@@ -635,7 +716,8 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                               padding: EdgeInsets.all(8.0),
                               child: LinearProgressIndicator(),
                             )
-                          else if (_categoryName.isEmpty && _subcategoryName.isEmpty)
+                          else if (_categoryName.isEmpty &&
+                              _subcategoryName.isEmpty)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8.0),
                               child: Text('القضية غير مرتبطة بأي فولدر'),
@@ -649,9 +731,18 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                             ),
                             if (_subcategoryName.isNotEmpty) ...[
                               const Padding(
-                                padding: EdgeInsets.only(right: 6, top: 2, bottom: 2),
-                                child: Text('‹',
-                                    style: TextStyle(color: Colors.grey, fontSize: 18)),
+                                padding: EdgeInsets.only(
+                                  right: 6,
+                                  top: 2,
+                                  bottom: 2,
+                                ),
+                                child: Text(
+                                  '‹',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 18,
+                                  ),
+                                ),
                               ),
                               _buildFolderRow(
                                 icon: Icons.folder_rounded,
@@ -670,7 +761,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
 
                   // Case Steps section
                   Card(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -678,7 +771,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                         children: [
                           const Text(
                             'خطوات ومسار القضية',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                           const Divider(),
                           if (_steps.isEmpty)
@@ -691,14 +787,17 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                           else
                             ...List.generate(_steps.length, (index) {
                               final step = _steps[index];
-                              final branchCount = (_stepBranches[_stepKey(step, index)] ??
-                                      <BranchInputData>[])
-                                  .length;
+                              final branchCount =
+                                  (_stepBranches[_stepKey(step, index)] ??
+                                          <BranchInputData>[])
+                                      .length;
                               return ListTile(
                                 onTap: _openRoadmapEditor,
                                 leading: IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded,
-                                      color: Colors.redAccent),
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Colors.redAccent,
+                                  ),
                                   onPressed: () => _removeStep(index),
                                   tooltip: 'حذف هذه الخطوة من المسار',
                                 ),
@@ -708,12 +807,17 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                       Container(
                                         margin: const EdgeInsets.only(left: 6),
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.green.shade50,
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                           border: Border.all(
-                                              color: Colors.green.shade300),
+                                            color: Colors.green.shade300,
+                                          ),
                                         ),
                                         child: Text(
                                           'خطوة جديدة',
@@ -732,7 +836,8 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                         textAlign: TextAlign.right,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.bold),
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -740,7 +845,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    if ((step['short_description'] ?? '').toString().isNotEmpty)
+                                    if ((step['short_description'] ?? '')
+                                        .toString()
+                                        .isNotEmpty)
                                       Text(
                                         step['short_description'] ?? '',
                                         textAlign: TextAlign.right,
@@ -749,7 +856,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                       ),
                                     if (branchCount > 0)
                                       Padding(
-                                        padding: const EdgeInsets.only(top: 4.0),
+                                        padding: const EdgeInsets.only(
+                                          top: 4.0,
+                                        ),
                                         child: Text(
                                           '🌿 يتفرع منها $branchCount مسار(ات)',
                                           style: TextStyle(
@@ -766,7 +875,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                   backgroundColor: const Color(0xFF1E3A8A),
                                   child: Text(
                                     '${index + 1}',
-                                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               );
@@ -782,7 +894,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                               const Spacer(),
                               TextButton.icon(
                                 onPressed: _openRoadmapEditor,
-                                icon: const Icon(Icons.account_tree_rounded, size: 18),
+                                icon: const Icon(
+                                  Icons.account_tree_rounded,
+                                  size: 18,
+                                ),
                                 label: const Text('تعديل الفروع والمسارات'),
                               ),
                             ],
@@ -794,7 +909,11 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                               'ثم افتح «مسار هذا الفرع» لإضافة تفريع جديد له، '
                               'أو اضغط «الانتقال للخطوة التالية» لربط المسار بالخطوة التي تليه.',
                               textAlign: TextAlign.right,
-                              style: TextStyle(fontSize: 11, height: 1.6, color: Colors.grey),
+                              style: TextStyle(
+                                fontSize: 11,
+                                height: 1.6,
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                         ],
@@ -819,7 +938,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text(
                             'حفظ كافة التعديلات',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ],
@@ -967,7 +1089,11 @@ class _CaseRoadmapEditorScreenState extends State<_CaseRoadmapEditorScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: const [
-                  BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
                 ],
               ),
               child: Column(

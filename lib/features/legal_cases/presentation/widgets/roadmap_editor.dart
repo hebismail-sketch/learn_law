@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-
 class BranchKind {
   final String id;
   final String defaultTitle;
@@ -69,7 +68,9 @@ BranchKind branchKindFor(String? outcome) {
 String? inferOutcomeFromTitle(String title) {
   if (title.contains('قبول')) return 'acceptance';
   if (title.contains('رفض')) return 'rejection';
-  if (title.contains('طعن') || title.contains('استئناف') || title.contains('طور')) {
+  if (title.contains('طعن') ||
+      title.contains('استئناف') ||
+      title.contains('طور')) {
     return 'appeal';
   }
   return null;
@@ -132,7 +133,7 @@ class BranchInputData {
   String? nextStepTitle;
 
   BranchInputData({String? defaultTitle, this.outcome})
-      : titleController = TextEditingController(text: defaultTitle ?? '');
+    : titleController = TextEditingController(text: defaultTitle ?? '');
 
   Color get color => branchColorFor(outcome);
 
@@ -148,10 +149,9 @@ class BranchInputData {
   }
 
   void addSubBranch({String? defaultTitle, String? branchOutcome}) {
-    subBranches.add(BranchInputData(
-      defaultTitle: defaultTitle,
-      outcome: branchOutcome,
-    ));
+    subBranches.add(
+      BranchInputData(defaultTitle: defaultTitle, outcome: branchOutcome),
+    );
   }
 
   void removeSubBranch(int index) {
@@ -259,12 +259,71 @@ String encodeStepDescription({
     });
   }
 
-  return '__BRANCHES_JSON__${jsonEncode({
-        'step_number': ?stepNumber,
-        'main_description': description,
-        'branches': valid,
-        if (links.isNotEmpty) 'path_links': links,
-      })}';
+  return '__BRANCHES_JSON__${jsonEncode({'step_number': ?stepNumber, 'main_description': description, 'branches': valid, if (links.isNotEmpty) 'path_links': links})}';
+}
+
+/// Walks [branches] and everything nested under them, depth-first.
+///
+/// The editor nests branches inside branches ([BranchInputData.subBranches]),
+/// so any pass that has to touch every branch — renumbering path links, for
+/// instance — has to recurse instead of iterating one level.
+void forEachBranch(
+  List<BranchInputData> branches,
+  void Function(BranchInputData branch) action,
+) {
+  for (final branch in branches) {
+    action(branch);
+    forEachBranch(branch.subBranches, action);
+  }
+}
+
+/// Assigns the final `step_number` to every step that will actually be saved.
+///
+/// The editor numbers steps by their position in the list, but a step with no
+/// title is never written to `case_steps`. Saving the survivors under their
+/// editor numbers would leave holes in the sequence (1, 3, 4 …) and, worse,
+/// send every «الانتقال للخطوة التالية» link to the wrong stage — those links
+/// store the editor number they were picked against.
+///
+/// [keeps] marks, per editor position, whether that step has content to save.
+/// The returned [numbers] holds the new number of each kept step in editor
+/// order, and [remap] translates an old editor number into its new one. A
+/// dropped step gets no entry, which is how a caller recognises that a link
+/// pointing at it has nowhere left to go.
+({List<int> numbers, Map<int, int> remap}) renumberSteps(List<bool> keeps) {
+  final numbers = <int>[];
+  final remap = <int, int>{};
+
+  for (var i = 0; i < keeps.length; i++) {
+    if (!keeps[i]) continue;
+    numbers.add(numbers.length + 1);
+    remap[i + 1] = numbers.length;
+  }
+
+  return (numbers: numbers, remap: remap);
+}
+
+/// Re-points every branch's `nextStepNumber` through [remap].
+///
+/// A branch whose destination was dropped loses the link entirely: the stage
+/// it pointed at is not being saved, so the path can only end there. Leaving
+/// the old number in place would silently redirect it to whichever surviving
+/// step took over that position.
+void remapBranchLinks(List<StepInputData> steps, Map<int, int> remap) {
+  for (final step in steps) {
+    forEachBranch(step.branches, (branch) {
+      final target = branch.nextStepNumber;
+      if (target == null) return;
+
+      final mapped = remap[target];
+      if (mapped == null) {
+        branch.nextStepNumber = null;
+        branch.nextStepTitle = null;
+      } else {
+        branch.nextStepNumber = mapped;
+      }
+    });
+  }
 }
 
 /// Decode a stored step row back into input models (used by the edit screen).
@@ -356,10 +415,12 @@ Future<NextStepChoice?> showNextStepPicker(
     final title = steps[i].titleController.text.trim();
     if (title.isEmpty) continue;
     final isSelf = i == fromIndex;
-    choices.add(NextStepChoice(
-      number: i + 1,
-      title: isSelf ? '$title (هذه الخطوة نفسها)' : title,
-    ));
+    choices.add(
+      NextStepChoice(
+        number: i + 1,
+        title: isSelf ? '$title (هذه الخطوة نفسها)' : title,
+      ),
+    );
   }
 
   return showDialog<NextStepChoice>(
@@ -367,7 +428,10 @@ Future<NextStepChoice?> showNextStepPicker(
     builder: (ctx) => Directionality(
       textDirection: TextDirection.rtl,
       child: AlertDialog(
-        title: const Text('الانتقال للخطوة التالية', textAlign: TextAlign.right),
+        title: const Text(
+          'الانتقال للخطوة التالية',
+          textAlign: TextAlign.right,
+        ),
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
         content: SizedBox(
           width: double.maxFinite,
@@ -389,7 +453,10 @@ Future<NextStepChoice?> showNextStepPicker(
                         backgroundColor: const Color(0xFF1E3A8A),
                         child: Text(
                           '${c.number}',
-                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                       title: Text(
@@ -533,7 +600,10 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
       children: [
         _intro(context),
         const SizedBox(height: 8),
-        ...List.generate(widget.steps.length, (i) => _buildStepCard(context, i)),
+        ...List.generate(
+          widget.steps.length,
+          (i) => _buildStepCard(context, i),
+        ),
         const SizedBox(height: 4),
         OutlinedButton.icon(
           onPressed: () => _mutate(widget.onAddStep),
@@ -569,7 +639,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               'داخل كل فرع يمكنك إضافة محطاته المتتالية على الجانب، '
               'أو التفرع داخله من جديد بنفس الطريقة.',
               textAlign: TextAlign.right,
-              style: TextStyle(fontSize: 12, height: 1.6, color: Color(0xFF1E3A8A)),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.6,
+                color: Color(0xFF1E3A8A),
+              ),
             ),
           ),
           SizedBox(width: 8),
@@ -601,7 +675,10 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               if (widget.steps.length > 1)
                 IconButton(
                   tooltip: 'حذف الخطوة',
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.red,
+                  ),
                   onPressed: () => _mutate(() => widget.onRemoveStep(index)),
                 )
               else
@@ -619,7 +696,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               const CircleAvatar(
                 radius: 14,
                 backgroundColor: Color(0xFF1E3A8A),
-                child: Icon(Icons.timeline_rounded, color: Colors.white, size: 16),
+                child: Icon(
+                  Icons.timeline_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
             ],
           ),
@@ -669,7 +750,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                   ),
                 ),
               ),
-              const Icon(Icons.call_split_rounded, size: 18, color: Color(0xFF64748B)),
+              const Icon(
+                Icons.call_split_rounded,
+                size: 18,
+                color: Color(0xFF64748B),
+              ),
             ],
           ),
 
@@ -728,7 +813,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
     final accent = branch.color;
     final kind = branchKindFor(branch.outcome);
 
-    _hosts[branch] = _BranchHost(stepIndex: stepIndex, parent: parent, siblings: siblings);
+    _hosts[branch] = _BranchHost(
+      stepIndex: stepIndex,
+      parent: parent,
+      siblings: siblings,
+    );
 
     return Container(
       margin: EdgeInsets.only(top: 12, right: depth * 10.0),
@@ -745,14 +834,19 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.10),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(10),
+              ),
             ),
             child: Row(
               children: [
                 IconButton(
                   tooltip: 'حذف الفرع',
-                  icon: const Icon(Icons.delete_outline_rounded,
-                      color: Colors.red, size: 20),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.red,
+                    size: 20,
+                  ),
                   onPressed: () => _removeBranch(branch),
                 ),
                 Expanded(
@@ -836,7 +930,13 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                 const SizedBox(height: 10),
 
                 // Nested sub-branches
-                _buildSubBranchesEditor(context, branch, accent, depth, branchNumber),
+                _buildSubBranchesEditor(
+                  context,
+                  branch,
+                  accent,
+                  depth,
+                  branchNumber,
+                ),
 
                 // A fork is rarely the end of the story: let the admin add
                 // another branch on the *same* path right after this one, and
@@ -871,8 +971,10 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               TextButton.icon(
                 onPressed: () => _mutate(() => branch.addSubStep()),
                 icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-                label: const Text('إضافة محطة (خطوة في المسار)',
-                    style: TextStyle(fontSize: 12)),
+                label: const Text(
+                  'إضافة محطة (خطوة في المسار)',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -887,7 +989,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                   ),
                 ),
               ),
-              const Icon(Icons.timeline_rounded, size: 16, color: Color(0xFF3B82F6)),
+              const Icon(
+                Icons.timeline_rounded,
+                size: 16,
+                color: Color(0xFF3B82F6),
+              ),
             ],
           ),
           if (count == 0)
@@ -907,8 +1013,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                   children: [
                     IconButton(
                       tooltip: 'حذف المحطة',
-                      icon: const Icon(Icons.remove_circle_outline_rounded,
-                          color: Colors.redAccent, size: 18),
+                      icon: const Icon(
+                        Icons.remove_circle_outline_rounded,
+                        color: Colors.redAccent,
+                        size: 18,
+                      ),
                       onPressed: () => _mutate(() => branch.removeSubStep(s)),
                     ),
                     Expanded(
@@ -964,7 +1073,8 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
           Row(
             children: [
               OutlinedButton.icon(
-                onPressed: () => _addBranchWithPicker(parent: branch, step: null),
+                onPressed: () =>
+                    _addBranchWithPicker(parent: branch, step: null),
                 icon: Icon(Icons.schema_rounded, size: 16, color: accent),
                 label: Text(
                   'إضافة فرع داخل هذا الفرع',
@@ -972,7 +1082,10 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                 ),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: accent.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
@@ -1088,7 +1201,10 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                 ),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: accent.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                 ),
               ),
               // «الانتقال للخطوة التالية» — link this path to the next step.
@@ -1126,8 +1242,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                       ),
                     ),
                   ),
-                  const Icon(Icons.arrow_downward_rounded,
-                      size: 16, color: Color(0xFF0F766E)),
+                  const Icon(
+                    Icons.arrow_downward_rounded,
+                    size: 16,
+                    color: Color(0xFF0F766E),
+                  ),
                 ],
               ),
             )
@@ -1159,7 +1278,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.call_merge_rounded, size: 16, color: Color(0xFF047857)),
+          const Icon(
+            Icons.call_merge_rounded,
+            size: 16,
+            color: Color(0xFF047857),
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -1281,16 +1404,18 @@ class RoadmapPreview extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final b in step.branches)
-                Expanded(child: _previewBranch(b)),
+              for (final b in step.branches) Expanded(child: _previewBranch(b)),
             ],
           ),
           _mergeLine(),
         ] else
           const Padding(
             padding: EdgeInsets.only(top: 6),
-            child: Icon(Icons.arrow_downward_rounded,
-                color: Color(0xFF94A3B8), size: 18),
+            child: Icon(
+              Icons.arrow_downward_rounded,
+              color: Color(0xFF94A3B8),
+              size: 18,
+            ),
           ),
         const SizedBox(height: 12),
       ],
@@ -1329,8 +1454,11 @@ class RoadmapPreview extends StatelessWidget {
           for (final s in stations) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 3),
-              child: Icon(Icons.more_vert_rounded,
-                  size: 14, color: Color(0xFF94A3B8)),
+              child: Icon(
+                Icons.more_vert_rounded,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
@@ -1356,10 +1484,16 @@ class RoadmapPreview extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.subdirectory_arrow_left_rounded,
-                      size: 12, color: Color(0xFF94A3B8)),
+                  Icon(
+                    Icons.subdirectory_arrow_left_rounded,
+                    size: 12,
+                    color: Color(0xFF94A3B8),
+                  ),
                   SizedBox(width: 4),
-                  Text('تفرع داخل الفرع', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                  Text(
+                    'تفرع داخل الفرع',
+                    style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+                  ),
                 ],
               ),
             ),
@@ -1415,14 +1549,22 @@ class RoadmapPreview extends StatelessWidget {
   Widget _forkLine() {
     return const Padding(
       padding: EdgeInsets.only(top: 6, bottom: 6),
-      child: Icon(Icons.account_tree_rounded, color: Color(0xFF94A3B8), size: 18),
+      child: Icon(
+        Icons.account_tree_rounded,
+        color: Color(0xFF94A3B8),
+        size: 18,
+      ),
     );
   }
 
   Widget _mergeLine() {
     return const Padding(
       padding: EdgeInsets.only(top: 8),
-      child: Icon(Icons.arrow_downward_rounded, color: Color(0xFF94A3B8), size: 18),
+      child: Icon(
+        Icons.arrow_downward_rounded,
+        color: Color(0xFF94A3B8),
+        size: 18,
+      ),
     );
   }
 }

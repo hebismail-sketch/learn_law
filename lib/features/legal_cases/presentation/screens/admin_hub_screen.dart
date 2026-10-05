@@ -79,8 +79,9 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         _categories = rows
             .map((r) => <String, dynamic>{'id': r.id, 'name': r.name})
             .toList();
-        _categories.sort((a, b) => (a['name'] as String)
-            .compareTo(b['name'] as String));
+        _categories.sort(
+          (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+        );
         if (_categories.isNotEmpty) {
           _selectedCategoryId = _categories.first['id'];
           _fetchSubcategories(_selectedCategoryId!);
@@ -108,9 +109,11 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             .map((r) => <String, dynamic>{'id': r.id, 'name': r.name})
             .toList();
         _subcategories.sort(
-            (a, b) => (a['name'] as String).compareTo(b['name'] as String));
-        _selectedSubcategoryId =
-            _subcategories.isNotEmpty ? _subcategories.first['id'] : null;
+          (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+        );
+        _selectedSubcategoryId = _subcategories.isNotEmpty
+            ? _subcategories.first['id']
+            : null;
         _isLoading = false;
       });
     } catch (e) {
@@ -243,23 +246,46 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         description: _caseDescController.text.trim(),
       );
 
-      // 2. Insert the steps, keeping the on-screen order as step_number.
+      // 2. Insert the steps in the order they appear on screen.
+      //
+      //    A step with no title is never written, so the survivors are
+      //    renumbered to a gapless 1..n before anything is saved. Numbering
+      //    them by their editor position would both leave holes in the
+      //    sequence and — because «الانتقال للخطوة التالية» links store the
+      //    number they were picked against — point every path at the wrong
+      //    stage.
+      final keeps = _stepInputs
+          .map((s) => s.titleController.text.trim().isNotEmpty)
+          .toList();
+      final plan = renumberSteps(keeps);
+      final remap = plan.remap;
+      final numbers = plan.numbers;
+
+      // Path links were chosen against the editor numbers, so they have to
+      // follow the new numbering before the steps that carry them are built.
+      remapBranchLinks(_stepInputs, remap);
+
+      var saved = 0;
       for (int i = 0; i < _stepInputs.length; i++) {
         final stepInput = _stepInputs[i];
         final stepTitle = stepInput.titleController.text.trim();
         final stepDesc = stepInput.descController.text.trim();
 
-        if (stepTitle.isNotEmpty) {
-          await _local.insertCaseStep(
-            caseId: caseId,
-            stepNumber: i + 1,
-            title: stepTitle,
-            shortDescription: encodeStepDescription(
-              description: stepDesc,
-              branches: stepInput.branches,
-            ),
-          );
-        }
+        if (!keeps[i]) continue;
+
+        final stepNumber = numbers[saved];
+        saved++;
+
+        await _local.insertCaseStep(
+          caseId: caseId,
+          stepNumber: stepNumber,
+          title: stepTitle,
+          shortDescription: encodeStepDescription(
+            description: stepDesc,
+            branches: stepInput.branches,
+            stepNumber: stepNumber,
+          ),
+        );
       }
 
       setState(() => _isSaving = false);
@@ -304,7 +330,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
-           appBar: AppBar(
+      appBar: AppBar(
         title: const Text(
           'لوحة إدارة القضايا والمسارات',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -355,12 +381,18 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                           children: [
                             IconButton(
                               onPressed: _showAddCategoryDialog,
-                              icon: const Icon(Icons.add_circle, color: Colors.blue),
+                              icon: const Icon(
+                                Icons.add_circle,
+                                color: Colors.blue,
+                              ),
                               tooltip: 'إضافة تصنيف رئيسي جديد',
                             ),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _categories.any((cat) => cat['id'] == _selectedCategoryId)
+                                value:
+                                    _categories.any(
+                                      (cat) => cat['id'] == _selectedCategoryId,
+                                    )
                                     ? _selectedCategoryId
                                     : null,
                                 decoration: const InputDecoration(
@@ -379,7 +411,8 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                                   );
                                 }).toList(),
                                 onChanged: (val) {
-                                  if (val != null && val != _selectedCategoryId) {
+                                  if (val != null &&
+                                      val != _selectedCategoryId) {
                                     setState(() {
                                       _selectedCategoryId = val;
                                       _selectedSubcategoryId = null;
@@ -397,12 +430,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                           children: [
                             IconButton(
                               onPressed: _showAddSubcategoryDialog,
-                              icon: const Icon(Icons.add_circle, color: Colors.amber),
+                              icon: const Icon(
+                                Icons.add_circle,
+                                color: Colors.amber,
+                              ),
                               tooltip: 'إضافة قسم فرعي جديد',
                             ),
                             Expanded(
                               child: DropdownButtonFormField<String>(
-                                value: _subcategories.any((sub) => sub['id'] == _selectedSubcategoryId)
+                                value:
+                                    _subcategories.any(
+                                      (sub) =>
+                                          sub['id'] == _selectedSubcategoryId,
+                                    )
                                     ? _selectedSubcategoryId
                                     : null,
                                 decoration: const InputDecoration(
@@ -536,11 +576,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
