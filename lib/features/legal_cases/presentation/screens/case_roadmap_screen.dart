@@ -239,11 +239,15 @@ class _RoadmapGraph extends StatelessWidget {
     required this.steps,
   });
 
-  void _openStep(BuildContext context, CaseStepEntity step) {
+  void _openStep(BuildContext context, int initialStepIndex) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => StepDetailScreen(caseName: caseName, step: step),
+        builder: (_) => StepDetailScreen(
+          caseName: caseName,
+          steps: steps,
+          initialStepIndex: initialStepIndex,
+        ),
       ),
     );
   }
@@ -264,7 +268,7 @@ class _RoadmapGraph extends StatelessWidget {
         for (int index = 0; index < steps.length; index++) ...[
           _MainStepNode(
             step: steps[index],
-            onTap: () => _openStep(context, steps[index]),
+            onTap: () => _openStep(context, index),
           ),
 
           // فروع الخطوة تظهر مباشرة تحتها (وليس بينها وبين الخطوة التالية)

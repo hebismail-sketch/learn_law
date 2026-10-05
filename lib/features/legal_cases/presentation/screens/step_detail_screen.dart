@@ -121,24 +121,34 @@ class LegalTheme {
 
 class StepDetailScreen extends StatefulWidget {
   final String caseName;
-  final CaseStepEntity step;
+  final List<CaseStepEntity> steps;
+  final int initialStepIndex;
 
-  const StepDetailScreen({
+  StepDetailScreen({
     super.key,
     required this.caseName,
-    required this.step,
-  });
+    required this.steps,
+    required this.initialStepIndex,
+  }) : assert(steps.isNotEmpty),
+       assert(initialStepIndex >= 0 && initialStepIndex < steps.length);
 
   @override
   State<StepDetailScreen> createState() => _StepDetailScreenState();
 }
 
 class _StepDetailScreenState extends State<StepDetailScreen> {
+  late int _currentStepIndex;
   int _selectedBranchIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _currentStepIndex = widget.initialStepIndex;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final step = widget.step;
+    final step = widget.steps[_currentStepIndex];
     final accent = StepPalette.of(step.stepNumber);
     final hasBranches = step.branches.isNotEmpty;
     final safeBranchIndex = _selectedBranchIndex.clamp(
@@ -194,6 +204,65 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
             ],
           ),
         ),
+        bottomNavigationBar: _stepNavigation(accent),
+      ),
+    );
+  }
+
+  void _showStep(int index) {
+    setState(() {
+      _currentStepIndex = index;
+      _selectedBranchIndex = 0;
+    });
+  }
+
+  Widget _stepNavigation(StepAccent accent) {
+    if (widget.steps.length < 2) return const SizedBox.shrink();
+
+    final hasPrevious = _currentStepIndex > 0;
+    final hasNext = _currentStepIndex < widget.steps.length - 1;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: LegalTheme.surface,
+        border: Border(
+          top: BorderSide(color: accent.color.withValues(alpha: 0.35)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: hasPrevious
+                      ? () => _showStep(_currentStepIndex - 1)
+                      : null,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('السابقة'),
+                ),
+              ),
+              Text(
+                '${_currentStepIndex + 1} من ${widget.steps.length}',
+                style: const TextStyle(
+                  color: LegalTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: hasNext
+                      ? () => _showStep(_currentStepIndex + 1)
+                      : null,
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('التالية'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -210,7 +279,7 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
   }
 
   Widget _header(StepAccent accent) {
-    final step = widget.step;
+    final step = widget.steps[_currentStepIndex];
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
