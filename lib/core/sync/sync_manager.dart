@@ -33,6 +33,9 @@ class SyncResult {
 /// the server copy is strictly newer *and* nothing is pending for that row, so
 /// an unsynced local edit is never clobbered by a stale read.
 class SyncManager {
+  static const _caseStepsBackfillMarker = '__case_steps_backfill_v1__';
+  static const _pullPageSize = 500;
+
   final AppDatabase db;
   final SupabaseClient supabase;
   final ConnectivityService connectivity;
@@ -144,26 +147,74 @@ class SyncManager {
   /// Fetches rows changed since the last successful sync into the local copy.
   Future<int> _pullChanges() async {
     var pulled = 0;
+    await _ensureCaseStepsBackfill();
+
     // Parents first so a child never arrives before the row it points at.
     for (final table in SyncTables.all) {
       final since = await _lastSyncedAt(table);
-      final response = await supabase
-          .from(table)
-          .select()
-          .gt('updated_at', since.toUtc().toIso8601String())
-          .order('updated_at', ascending: true);
+      final pullStartedAt = DateTime.now().toUtc();
+      var offset = 0;
+      late List<dynamic> response;
 
-      // Rows arrive including soft-deleted ones. That is deliberate: a delete
-      // is how this device learns that a row another device removed is gone.
-      // _mergeRemoteRow applies deleted_at, and the repository filters it out
-      // of the UI reads.
-      for (final row in (response as List).cast<Map<String, dynamic>>()) {
-        await _mergeRemoteRow(table, row);
-        pulled++;
+      do {
+        response = await supabase
+            .from(table)
+            .select()
+            .gt('updated_at', since.toUtc().toIso8601String())
+            .order('updated_at', ascending: true)
+            .order('id', ascending: true)
+            .range(offset, offset + _pullPageSize - 1);
+
+        // Rows arrive including soft-deleted ones. That is deliberate: a
+        // delete is how this device learns another device removed a row.
+        // _mergeRemoteRow applies deleted_at, and repository reads filter it.
+        for (final row in response.cast<Map<String, dynamic>>()) {
+          await _mergeRemoteRow(table, row);
+          pulled++;
+        }
+        offset += response.length;
+      } while (response.length == _pullPageSize);
+
+      // Keep a small overlap so rows written while this pull was in progress
+      // are eligible for the next pull instead of falling behind the watermark.
+      final nextWatermark = pullStartedAt.subtract(const Duration(seconds: 1));
+      if (nextWatermark.isAfter(since)) {
+        await _setLastSyncedAt(table, nextWatermark);
       }
-      await _setLastSyncedAt(table, DateTime.now().toUtc());
     }
     return pulled;
+  }
+
+  /// Clears the old step watermark once so devices re-fetch rows omitted by
+  /// the previous single-page pull.
+  Future<void> _ensureCaseStepsBackfill() async {
+    final marker =
+        await (db.select(db.syncState)
+              ..where((t) => t.targetTable.equals(_caseStepsBackfillMarker))
+              ..limit(1))
+            .getSingleOrNull();
+    if (marker != null) return;
+
+    await db.transaction(() async {
+      final existingMarker =
+          await (db.select(db.syncState)
+                ..where((t) => t.targetTable.equals(_caseStepsBackfillMarker))
+                ..limit(1))
+              .getSingleOrNull();
+      if (existingMarker != null) return;
+
+      await (db.delete(
+        db.syncState,
+      )..where((t) => t.targetTable.equals(SyncTables.caseSteps))).go();
+      await db
+          .into(db.syncState)
+          .insert(
+            SyncStateCompanion.insert(
+              targetTable: _caseStepsBackfillMarker,
+              lastSyncedAt: DateTime.now().toUtc(),
+            ),
+          );
+    });
   }
 
   Future<void> _mergeRemoteRow(String table, Map<String, dynamic> row) async {
