@@ -58,4 +58,66 @@ void main() {
     expect(find.text('3 من 3'), findsOneWidget);
     expect(find.text('Third step'), findsOneWidget);
   });
+
+  testWidgets('shows each description sentence as a separate numbered item', (
+    tester,
+  ) async {
+    final step = CaseStepEntity(
+      id: 'step-1',
+      caseId: 'case-1',
+      stepNumber: 1,
+      title: 'إجراءات تقديم الطلب',
+      shortDescription: 'تبدأ المرحلة بتقديم الطلب. ثم تتم مراجعة المستندات؟',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StepDetailScreen(
+          caseName: 'قضية تجريبية',
+          steps: [step],
+          initialStepIndex: 0,
+        ),
+      ),
+    );
+
+    expect(find.text('تبدأ المرحلة بتقديم الطلب.'), findsOneWidget);
+    expect(find.text('ثم تتم مراجعة المستندات؟'), findsOneWidget);
+    expect(find.text('وصف المسار'), findsNothing);
+    final sentenceStyle = tester
+        .widget<Text>(find.text('تبدأ المرحلة بتقديم الطلب.'))
+        .style!;
+    expect(sentenceStyle.fontSize, 16.5);
+    expect(sentenceStyle.color, Colors.white);
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('step-tile-1'))).dx,
+      greaterThan(
+        tester.getCenter(find.byKey(const ValueKey('step-tile-2'))).dx,
+      ),
+    );
+    final rightCard = tester.getRect(find.byKey(const ValueKey('step-tile-1')));
+    final leftCard = tester.getRect(find.byKey(const ValueKey('step-tile-2')));
+    final rightNumber = find.byKey(const ValueKey('step-number-1'));
+    final leftNumber = find.byKey(const ValueKey('step-number-2'));
+
+    expect(tester.getRect(rightNumber).right, greaterThan(rightCard.right));
+    expect(tester.getRect(leftNumber).left, lessThan(leftCard.left));
+    expect(
+      tester.widget<Container>(rightNumber).decoration,
+      isA<BoxDecoration>().having(
+        (decoration) => decoration.shape,
+        'shape',
+        BoxShape.circle,
+      ),
+    );
+    expect(
+      tester
+          .widget<Container>(find.byKey(const ValueKey('steps-heading-icon')))
+          .decoration,
+      isA<BoxDecoration>().having(
+        (decoration) => decoration.borderRadius,
+        'border radius',
+        BorderRadius.circular(20),
+      ),
+    );
+  });
 }

@@ -189,9 +189,6 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
             children: [
               _header(accent),
               const SizedBox(height: 20),
-              // 1) الوصف first, 2) the steps underneath, always in that order.
-              _descriptionCard(step, accent),
-              const SizedBox(height: 20),
               _stepsCard(
                 step: step,
                 items: items,
@@ -272,7 +269,7 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
   List<String> _stepsFromProse(CaseStepEntity step) {
     if (step.branches.isNotEmpty) return const [];
     return step.shortDescription
-        .split(RegExp(r'[.،\n]'))
+        .split(RegExp(r'(?<=[.!؟۔?])|\n+'))
         .map((e) => e.trim())
         .where((e) => e.length > 10)
         .toList();
@@ -305,16 +302,24 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: const Color(0xFF0F172A).withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Text(
                 'المرحلة (${step.stepNumber})',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -373,27 +378,6 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
     );
   }
 
-  Widget _descriptionCard(CaseStepEntity step, StepAccent accent) {
-    return DetailSection(
-      title: 'وصف المسار',
-      icon: Icons.description_outlined,
-      accent: accent.color,
-      child: Text(
-        step.shortDescription.isNotEmpty
-            ? step.shortDescription
-            : 'تتضمن هذه المرحلة استيفاء الشروط القانونية ومتابعة '
-                  'الإجراءات المقررة نظاماً.',
-        textAlign: TextAlign.right,
-        style: const TextStyle(
-          fontSize: 15.5,
-          height: 1.9,
-          fontWeight: FontWeight.w500,
-          color: LegalTheme.textSecondary,
-        ),
-      ),
-    );
-  }
-
   Widget _stepsCard({
     required CaseStepEntity step,
     required List<String> items,
@@ -413,73 +397,124 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
         ? '${items.length} خطوات'
         : '+10 خطوات';
 
-    return DetailSection(
-      title: 'خصائص وإجراءات المسار',
-      icon: Icons.list_alt_rounded,
-      accent: accent.color,
-      trailing: label,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (onBranchSelected != null) ...[
-            _BranchSelector(
-              branches: step.branches,
-              selectedIndex: selectedIndex,
-              onSelect: onBranchSelected,
-            ),
-            const SizedBox(height: 16),
-          ] else if (branch != null && branch.title.isNotEmpty) ...[
-            Align(
-              alignment: Alignment.centerRight,
-              child: Container(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
+                  horizontal: 11,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: LegalTheme.branchColor(branch.title),
-                  borderRadius: BorderRadius.circular(30),
+                  color: accent.color.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: accent.color.withValues(alpha: 0.28),
+                  ),
                 ),
                 child: Text(
-                  branch.title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  label,
+                  style: TextStyle(
+                    color: accent.color,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    fontSize: 13.5,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (items.isEmpty)
-            const Text(
-              'لا توجد خطوات مسجلة لهذه المرحلة.',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 14.5,
-                height: 1.8,
-                color: LegalTheme.textMuted,
+              const SizedBox(width: 9),
+              Container(
+                key: const ValueKey('steps-heading-icon'),
+                width: 40,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: accent.color.withValues(alpha: 0.34),
+                  ),
+                ),
+                child: Icon(Icons.forum_rounded, color: accent.color, size: 19),
               ),
-            )
-          else
-            // Every step in its own raised dark card with a leading index
-            // marker, so a long procedure is scannable line by line.
-            ...items.asMap().entries.map(
-              (entry) => _StepTile(
-                index: entry.key + 1,
-                text: entry.value,
-                accent: accent.color,
+              const SizedBox(width: 8),
+              const Text(
+                'خصائص وإجراءات المسار',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: LegalTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        if (onBranchSelected != null) ...[
+          _BranchSelector(
+            branches: step.branches,
+            selectedIndex: selectedIndex,
+            onSelect: onBranchSelected,
+          ),
+          const SizedBox(height: 16),
+        ] else if (branch != null && branch.title.isNotEmpty) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: LegalTheme.branchColor(branch.title),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: LegalTheme.branchColor(
+                      branch.title,
+                    ).withValues(alpha: 0.24),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(
+                branch.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.5,
+                ),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
         ],
-      ),
+        if (items.isEmpty)
+          const Text(
+            'لا توجد خطوات مسجلة لهذه المرحلة.',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 14.5,
+              height: 1.8,
+              color: LegalTheme.textMuted,
+            ),
+          )
+        else
+          ...items.asMap().entries.map(
+            (entry) => _StepTile(
+              index: entry.key + 1,
+              text: entry.value,
+              accent: accent.color,
+            ),
+          ),
+      ],
     );
   }
 }
 
-/// One step of the procedure: an index marker, the text, and a hairline that
-/// ties the whole list into a single procedure.
+/// A numbered chat-style bubble that alternates sides down the procedure.
 class _StepTile extends StatelessWidget {
   final int index;
   final String text;
@@ -493,50 +528,156 @@ class _StepTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
-        color: LegalTheme.surfaceRaised,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: accent.withValues(alpha: 0.32)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 26,
-            height: 26,
+    final onRight = index.isOdd;
+    final number = index.toString().padLeft(2, '0');
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Align(
+          alignment: onRight ? Alignment.centerRight : Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: 0.88,
+            child: Container(
+              key: ValueKey('step-tile-$index'),
+              margin: const EdgeInsets.only(bottom: 20),
+              padding: EdgeInsets.fromLTRB(
+                onRight ? 15 : 38,
+                16,
+                onRight ? 38 : 15,
+                18,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: onRight
+                      ? [
+                          Color.alphaBlend(
+                            accent.withValues(alpha: 0.13),
+                            LegalTheme.surfaceRaised,
+                          ),
+                          LegalTheme.surface,
+                        ]
+                      : [LegalTheme.surfaceRaised, LegalTheme.surface],
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(25),
+                  topRight: const Radius.circular(25),
+                  bottomLeft: Radius.circular(onRight ? 25 : 9),
+                  bottomRight: Radius.circular(onRight ? 9 : 25),
+                ),
+                border: Border.all(color: accent.withValues(alpha: 0.38)),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: onRight ? 0.22 : 0.15),
+                    blurRadius: 24,
+                    spreadRadius: 2,
+                    offset: Offset(onRight ? -3 : 3, 11),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.28),
+                    blurRadius: 12,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'الخطوة $number',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: accent,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: accent.withValues(alpha: 0.6),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    text,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 16.5,
+                      height: 1.8,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(color: Color(0x3387CEFA), blurRadius: 8),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 12,
+          right: onRight ? -18 : null,
+          left: onRight ? null : -18,
+          child: Container(
+            key: ValueKey('step-number-$index'),
+            width: 48,
+            height: 48,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$index',
-              style: TextStyle(
-                color: accent,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accent,
+                  Color.alphaBlend(
+                    Colors.white.withValues(alpha: 0.18),
+                    accent,
+                  ),
+                ],
               ),
+              border: Border.all(color: LegalTheme.background, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.48),
+                  blurRadius: 15,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
             child: Text(
-              text,
-              textAlign: TextAlign.right,
+              number,
               style: const TextStyle(
-                fontSize: 15,
-                height: 1.85,
-                fontWeight: FontWeight.w600,
-                color: LegalTheme.textPrimary,
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.3,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
