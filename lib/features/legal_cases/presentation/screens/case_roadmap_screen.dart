@@ -10,6 +10,7 @@ import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
 import 'step_detail_screen.dart';
 import 'branch_detail_screen.dart';
+import '../widgets/step_palette.dart';
 
 class CaseRoadmapScreen extends StatelessWidget {
   final LegalCaseEntity legalCase;
