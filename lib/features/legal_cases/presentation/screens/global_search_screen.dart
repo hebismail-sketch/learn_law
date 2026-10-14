@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/injection_container.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../bloc/legal_cubit.dart';
+import '../widgets/starry_background.dart';
 import 'case_roadmap_screen.dart';
 
 class GlobalSearchScreen extends StatefulWidget {
@@ -60,7 +61,9 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     try {
       final response = await _supabase
           .from('legal_cases')
-          .select('id, title, description, subcategory_id, subcategories(id, name)')
+          .select(
+            'id, title, description, subcategory_id, subcategories(id, name)',
+          )
           .ilike('title', '%$query%');
 
       if (mounted) {
@@ -74,7 +77,10 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ أثناء البحث: $e', textAlign: TextAlign.right),
+            content: Text(
+              'حدث خطأ أثناء البحث: $e',
+              textAlign: TextAlign.right,
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -85,37 +91,44 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFF0B101D),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF0B101D),
+        foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         title: TextField(
           controller: _searchController,
           autofocus: true,
           textAlign: TextAlign.right,
+          style: const TextStyle(color: Colors.white),
+          cursorColor: const Color(0xFF38BDF8),
           decoration: InputDecoration(
             hintText: 'ابحث باسم القضية...',
             border: InputBorder.none,
-            hintStyle: TextStyle(color: Colors.grey.shade500),
+            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, color: Colors.grey),
+                    icon: const Icon(Icons.clear, color: Color(0xFF94A3B8)),
                     onPressed: () {
                       _searchController.clear();
                       _onSearchChanged('');
                     },
                   )
-                : const Icon(Icons.search, color: Colors.grey),
+                : const Icon(Icons.search, color: Color(0xFF38BDF8)),
           ),
           onChanged: _onSearchChanged,
         ),
-        elevation: 1,
+        elevation: 0,
       ),
-      body: _buildBody(),
+      body: StarryBackground(child: _buildBody()),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+      );
     }
 
     if (!_hasSearched || _searchController.text.trim().isEmpty) {
@@ -123,11 +136,15 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_rounded, size: 72, color: Colors.blue.shade200),
+            const Icon(
+              Icons.search_rounded,
+              size: 72,
+              color: Color(0xFF38BDF8),
+            ),
             const SizedBox(height: 16),
             Text(
               'اكتب اسم أي قضية للبحث عنها في كل الأقسام',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+              style: const TextStyle(fontSize: 15, color: Color(0xFFCBD5E1)),
             ),
           ],
         ),
@@ -139,11 +156,19 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.folder_off_outlined, size: 64, color: Colors.grey.shade400),
+            const Icon(
+              Icons.folder_off_outlined,
+              size: 64,
+              color: Color(0xFF64748B),
+            ),
             const SizedBox(height: 16),
             const Text(
               'لم يتم العثور على أي نتائج مطابقة',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFCBD5E1),
+              ),
             ),
           ],
         ),
@@ -168,13 +193,14 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         return Container(
           margin: const EdgeInsets.only(bottom: 14.0),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14.0),
+            color: const Color(0xFF161F36),
+            borderRadius: BorderRadius.circular(28.0),
+            border: Border.all(color: const Color(0xFF35425D)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -182,62 +208,94 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
           child: Material(
             color: Colors.transparent,
             child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            leading: const Icon(Icons.arrow_back_ios_new, size: 16, color: Colors.grey),
-            trailing: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                shape: BoxShape.circle,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
               ),
-              child: Icon(Icons.article_rounded, color: Colors.blue.shade700, size: 22),
-            ),
-            title: Text(
-              legalCaseEntity.name,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (legalCaseEntity.description != null && legalCaseEntity.description!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    legalCaseEntity.description!,
-                    textAlign: TextAlign.right,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              leading: const Icon(
+                Icons.arrow_back_ios_new,
+                size: 16,
+                color: Color(0xFF94A3B8),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF202B43),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.45),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.article_rounded,
+                  color: Color(0xFF38BDF8),
+                  size: 22,
+                ),
+              ),
+              title: Text(
+                legalCaseEntity.name,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (legalCaseEntity.description != null &&
+                      legalCaseEntity.description!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      legalCaseEntity.description!,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFCBD5E1),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF082F49),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Text(
+                      subcategoryName,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF7DD3FC),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.amber.shade200),
+              ),
+              onTap: () {
+                // Open case roadmap directly from search result
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BlocProvider(
+                      create: (_) =>
+                          sl<LegalCubit>()..fetchCaseSteps(legalCaseEntity.id),
+                      child: CaseRoadmapScreen(legalCase: legalCaseEntity),
+                    ),
                   ),
-                  child: Text(
-                    subcategoryName,
-                    style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
+                );
+              },
             ),
-            onTap: () {
-              // Open case roadmap directly from search result
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => BlocProvider(
-                    create: (_) => sl<LegalCubit>()..fetchCaseSteps(legalCaseEntity.id),
-                    child: CaseRoadmapScreen(legalCase: legalCaseEntity),
-                  ),
-                ),
-              );
-            },
-          ),
           ),
         );
       },
