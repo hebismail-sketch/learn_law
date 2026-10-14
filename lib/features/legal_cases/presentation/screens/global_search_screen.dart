@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/injection_container.dart';
+import '../../../../core/sync/local_data_source.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../bloc/legal_cubit.dart';
 import '../widgets/starry_background.dart';
@@ -16,10 +16,9 @@ class GlobalSearchScreen extends StatefulWidget {
 }
 
 class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
-  final _supabase = Supabase.instance.client;
   final _searchController = TextEditingController();
 
-  List<Map<String, dynamic>> _searchResults = [];
+  List<LocalLegalCaseSearchResult> _searchResults = [];
   bool _isLoading = false;
   bool _hasSearched = false;
   Timer? _debounceTimer;
@@ -31,7 +30,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     super.dispose();
   }
 
-  // Search cases in Supabase with debounce to avoid excessive requests
+  // Search cases on this device with debounce to avoid repeated local queries.
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
 
@@ -51,7 +50,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     });
   }
 
-  // Query Supabase for matching cases and their subcategories
+  // Search active cases cached on this device and their active folder names.
   Future<void> _performSearch(String query) async {
     setState(() {
       _isLoading = true;
@@ -59,16 +58,11 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     });
 
     try {
-      final response = await _supabase
-          .from('legal_cases')
-          .select(
-            'id, title, description, subcategory_id, subcategories(id, name)',
-          )
-          .ilike('title', '%$query%');
+      final response = await sl<LocalDataSource>().searchLegalCases(query);
 
       if (mounted) {
         setState(() {
-          _searchResults = List<Map<String, dynamic>>.from(response);
+          _searchResults = response;
           _isLoading = false;
         });
       }
@@ -180,14 +174,12 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final item = _searchResults[index];
-        final subcategoryData = item['subcategories'] as Map<String, dynamic>?;
-        final subcategoryName = subcategoryData?['name'] ?? 'قسم عام';
 
         final legalCaseEntity = LegalCaseEntity(
-          id: item['id'] as String,
-          subcategoryId: item['subcategory_id'] as String,
-          name: item['title'] ?? '',
-          description: item['description'],
+          id: item.id,
+          subcategoryId: item.subcategoryId,
+          name: item.title,
+          description: item.description,
         );
 
         return Container(
@@ -272,7 +264,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                       ),
                     ),
                     child: Text(
-                      subcategoryName,
+                      item.subcategoryName,
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF7DD3FC),

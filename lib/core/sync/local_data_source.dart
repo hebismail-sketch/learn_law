@@ -6,6 +6,22 @@ import 'package:uuid/uuid.dart';
 import 'app_database.dart';
 import 'sync_types.dart';
 
+class LocalLegalCaseSearchResult {
+  final String id;
+  final String subcategoryId;
+  final String subcategoryName;
+  final String title;
+  final String? description;
+
+  const LocalLegalCaseSearchResult({
+    required this.id,
+    required this.subcategoryId,
+    required this.subcategoryName,
+    required this.title,
+    required this.description,
+  });
+}
+
 /// Reads and writes the phone-side copy of the data. No network here.
 ///
 /// The pattern for every write is always the same two steps, inside one
@@ -52,6 +68,8 @@ abstract class LocalDataSource {
   // --- legal_cases ---
 
   Future<List<LocalLegalCase>> getLegalCases(String subcategoryId);
+
+  Future<List<LocalLegalCaseSearchResult>> searchLegalCases(String query);
 
   Future<String> insertLegalCase({
     required String subcategoryId,
@@ -310,6 +328,52 @@ class LocalDataSourceImpl implements LocalDataSource {
                 t.subcategoryId.equals(subcategoryId) & t.deletedAt.isNull(),
           ))
         .get();
+  }
+
+  @override
+  Future<List<LocalLegalCaseSearchResult>> searchLegalCases(
+    String query,
+  ) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) return const [];
+
+    final caseRows = await (db.select(db.legalCases)
+          ..where(
+            (row) =>
+                row.deletedAt.isNull() &
+                row.title.like('%$normalizedQuery%'),
+          ))
+        .get();
+    final activeCategories = await getCategories();
+    final activeCategoryIds = activeCategories.map((row) => row.id).toSet();
+    final activeSubcategories = await db.select(db.subcategories).get();
+    final subcategoriesById = {
+      for (final subcategory in activeSubcategories)
+        if (subcategory.deletedAt == null &&
+            activeCategoryIds.contains(subcategory.categoryId))
+          subcategory.id: subcategory,
+    };
+
+    final resultsByCaseKey = <String, LocalLegalCaseSearchResult>{};
+    for (final row in caseRows) {
+      final subcategory = subcategoriesById[row.subcategoryId];
+      if (subcategory == null) continue;
+
+      final normalizedTitle = row.title.trim().toLowerCase();
+      final caseKey = '${row.subcategoryId}\u0000$normalizedTitle';
+      resultsByCaseKey.putIfAbsent(
+        caseKey,
+        () => LocalLegalCaseSearchResult(
+          id: row.id,
+          subcategoryId: row.subcategoryId,
+          subcategoryName: subcategory.name,
+          title: row.title,
+          description: row.description,
+        ),
+      );
+    }
+
+    return resultsByCaseKey.values.toList();
   }
 
   @override
