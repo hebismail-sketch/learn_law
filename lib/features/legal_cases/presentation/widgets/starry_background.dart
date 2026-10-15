@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/app_theme.dart';
+
 class StarryBackground extends StatelessWidget {
   final Widget child;
 
@@ -10,7 +12,13 @@ class StarryBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const CustomPaint(painter: _StarsPainter()),
+        ValueListenableBuilder<bool>(
+          valueListenable: AppThemeController.isLight,
+          builder: (context, isLight, _) => ColoredBox(
+            color: AppColors.background,
+            child: CustomPaint(painter: _StarsPainter(isLight)),
+          ),
+        ),
         child,
       ],
     );
@@ -18,22 +26,27 @@ class StarryBackground extends StatelessWidget {
 }
 
 class _StarsPainter extends CustomPainter {
-  const _StarsPainter();
+  final bool isLight;
+
+  const _StarsPainter(this.isLight);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFFCBD5E1);
+    final starColor = isLight
+        ? const Color(0xFF7C91AC)
+        : const Color(0xFFCBD5E1);
+    final paint = Paint()..color = starColor;
     for (var index = 0; index < 150; index++) {
       final x = ((index * 67 + 19) % 997) / 997 * size.width;
       final y = ((index * 131 + 47) % 991) / 991 * size.height;
       final radius = 0.35 + (index % 4) * 0.12;
       final opacity = 0.12 + (index % 5) * 0.035;
-      paint.color = const Color(0xFFCBD5E1).withValues(alpha: opacity);
+      paint.color = starColor.withValues(alpha: opacity * (isLight ? 0.42 : 1));
       canvas.drawCircle(Offset(x, y), radius, paint);
     }
 
     final glowPaint = Paint()
-      ..color = const Color(0xFFCBD5E1).withValues(alpha: 0.28)
+      ..color = starColor.withValues(alpha: isLight ? 0.13 : 0.28)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5);
     for (var index = 0; index < 12; index++) {
       final x = ((index * 223 + 71) % 997) / 997 * size.width;
@@ -43,5 +56,6 @@ class _StarsPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _StarsPainter oldDelegate) =>
+      oldDelegate.isLight != isLight;
 }

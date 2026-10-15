@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/app_theme.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../../domain/entities/case_step_entity.dart';
 import '../../domain/entities/step_branch.dart';
@@ -19,104 +20,107 @@ class CaseRoadmapScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B101D),
-      appBar: AppBar(
-        title: Text(
-          legalCase.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: Colors.white,
+    return rebuildWithAppTheme(
+      (context) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(
+            legalCase.name,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: AppColors.textPrimary,
+            ),
           ),
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: AppColors.appBar,
+          iconTheme: IconThemeData(color: AppColors.textPrimary),
+          actions: const [ThemeToggleButton()],
         ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: const Color(0xFF0B101D),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Stack(
-        children: [
-          // RepaintBoundary يمنع إعادة رسم نقاط الخلفية مع كل حركة سكرول
-          // (كانت من أسباب تهنيج الإيمولاتور).
-          const Positioned.fill(
-            child: RepaintBoundary(child: _GridBackgroundPattern()),
-          ),
-          BlocBuilder<LegalCubit, LegalState>(
-            builder: (context, state) {
-              if (state is LegalLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
-                );
-              }
+        body: Stack(
+          children: [
+            // RepaintBoundary يمنع إعادة رسم نقاط الخلفية مع كل حركة سكرول
+            // (كانت من أسباب تهنيج الإيمولاتور).
+            const Positioned.fill(
+              child: RepaintBoundary(child: _GridBackgroundPattern()),
+            ),
+            BlocBuilder<LegalCubit, LegalState>(
+              builder: (context, state) {
+                if (state is LegalLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
+                  );
+                }
 
-              if (state is CaseStepsLoaded) {
-                final steps = state.caseSteps;
+                if (state is CaseStepsLoaded) {
+                  final steps = state.caseSteps;
 
-                if (steps.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.route_outlined,
-                          size: 64,
-                          color: Colors.blueGrey.shade700,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'لم يتم إضافة خطوات ومسارات بعد',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.bold,
+                  if (steps.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.route_outlined,
+                            size: 64,
+                            color: Color(0xFF38BDF8),
                           ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'لم يتم إضافة خطوات ومسارات بعد',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 24,
+                    ),
+                    child: Column(
+                      children: [
+                        _buildHeaderBadge(steps.length),
+                        const SizedBox(height: 32),
+                        _RoadmapGraph(
+                          caseName: legalCase.name,
+                          caseId: legalCase.id,
+                          steps: steps,
                         ),
+                        const SizedBox(height: 50),
                       ],
                     ),
                   );
                 }
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 24,
-                  ),
-                  child: Column(
-                    children: [
-                      _buildHeaderBadge(steps.length),
-                      const SizedBox(height: 32),
-                      _RoadmapGraph(
-                        caseName: legalCase.name,
-                        caseId: legalCase.id,
-                        steps: steps,
+                if (state is LegalError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'حدث خطأ: ${state.message}',
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 50),
-                    ],
-                  ),
-                );
-              }
-
-              if (state is LegalError) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'حدث خطأ: ${state.message}',
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
                     ),
-                  ),
-                );
-              }
+                  );
+                }
 
-              return const SizedBox.shrink();
-            },
-          ),
-        ],
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -125,9 +129,9 @@ class CaseRoadmapScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF161F36),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2E3D66)),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.3),
@@ -141,7 +145,7 @@ class CaseRoadmapScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: AppColors.raisedSurface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: const Color(0xFF38BDF8).withOpacity(0.4),
@@ -167,8 +171,8 @@ class CaseRoadmapScreen extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
                     ),
@@ -198,15 +202,22 @@ class _GridBackgroundPattern extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: _DotGridPainter());
+    return CustomPaint(
+      painter: _DotGridPainter(AppThemeController.isLight.value),
+    );
   }
 }
 
 class _DotGridPainter extends CustomPainter {
+  final bool isLight;
+
+  _DotGridPainter(this.isLight);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF2A3655).withOpacity(0.4)
+      ..color = (isLight ? const Color(0xFF8293A8) : const Color(0xFF2A3655))
+          .withValues(alpha: isLight ? 0.16 : 0.4)
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 2;
 
@@ -220,9 +231,8 @@ class _DotGridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
+  bool shouldRepaint(covariant _DotGridPainter oldDelegate) =>
+      oldDelegate.isLight != isLight;
 }
 
 // ============================================================================
@@ -386,8 +396,8 @@ class _MainStepNode extends StatelessWidget {
               Text(
                 step.title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 17,
                 ),
@@ -399,8 +409,8 @@ class _MainStepNode extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
                     fontSize: 13,
                     height: 1.4,
                   ),

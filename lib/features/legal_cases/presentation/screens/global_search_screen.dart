@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
 import '../../domain/entities/legal_case_entity.dart';
@@ -84,37 +85,40 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B101D),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B101D),
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-        title: TextField(
-          controller: _searchController,
-          autofocus: true,
-          textAlign: TextAlign.right,
-          style: const TextStyle(color: Colors.white),
-          cursorColor: const Color(0xFF38BDF8),
-          decoration: InputDecoration(
-            hintText: 'ابحث باسم القضية...',
-            border: InputBorder.none,
-            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, color: Color(0xFF94A3B8)),
-                    onPressed: () {
-                      _searchController.clear();
-                      _onSearchChanged('');
-                    },
-                  )
-                : const Icon(Icons.search, color: Color(0xFF38BDF8)),
+    return rebuildWithAppTheme(
+      (context) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.appBar,
+          foregroundColor: AppColors.textPrimary,
+          surfaceTintColor: Colors.transparent,
+          title: TextField(
+            controller: _searchController,
+            autofocus: true,
+            textAlign: TextAlign.right,
+            style: TextStyle(color: AppColors.textPrimary),
+            cursorColor: const Color(0xFF38BDF8),
+            decoration: InputDecoration(
+              hintText: 'ابحث باسم القضية...',
+              border: InputBorder.none,
+              hintStyle: TextStyle(color: AppColors.textMuted),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Color(0xFF94A3B8)),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearchChanged('');
+                      },
+                    )
+                  : const Icon(Icons.search, color: Color(0xFF38BDF8)),
+            ),
+            onChanged: _onSearchChanged,
           ),
-          onChanged: _onSearchChanged,
+          elevation: 0,
+          actions: const [ThemeToggleButton()],
         ),
-        elevation: 0,
+        body: StarryBackground(child: _buildBody()),
       ),
-      body: StarryBackground(child: _buildBody()),
     );
   }
 
@@ -138,7 +142,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
             const SizedBox(height: 16),
             Text(
               'اكتب اسم أي قضية للبحث عنها في كل الأقسام',
-              style: const TextStyle(fontSize: 15, color: Color(0xFFCBD5E1)),
+              style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -156,12 +160,12 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               color: Color(0xFF64748B),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'لم يتم العثور على أي نتائج مطابقة',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFCBD5E1),
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -185,9 +189,9 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
         return Container(
           margin: const EdgeInsets.only(bottom: 14.0),
           decoration: BoxDecoration(
-            color: const Color(0xFF161F36),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(28.0),
-            border: Border.all(color: const Color(0xFF35425D)),
+            border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.25),
@@ -212,7 +216,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               trailing: Container(
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF202B43),
+                  color: AppColors.raisedSurface,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: const Color(0xFF38BDF8).withValues(alpha: 0.45),
@@ -227,10 +231,10 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               title: Text(
                 legalCaseEntity.name,
                 textAlign: TextAlign.right,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                 ),
               ),
               subtitle: Column(
@@ -244,9 +248,9 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                       textAlign: TextAlign.right,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFFCBD5E1),
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],

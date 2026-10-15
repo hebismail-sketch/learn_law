@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/app_theme.dart';
 import 'step_palette.dart';
 
 class RoadmapListTile extends StatelessWidget {
@@ -34,9 +35,9 @@ class RoadmapListTile extends StatelessWidget {
           width: double.infinity,
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF161F36),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: const Color(0xFF35425D)),
+            border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.28),
@@ -65,8 +66,8 @@ class RoadmapListTile extends StatelessWidget {
                         Text(
                           title,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
                             fontSize: 18,
                             height: 1.4,
                             fontWeight: FontWeight.w800,
@@ -78,8 +79,8 @@ class RoadmapListTile extends StatelessWidget {
                           Text(
                             subtitle!,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Color(0xFFCBD5E1),
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
                               fontSize: 13.5,
                               height: 1.5,
                               fontWeight: FontWeight.w500,
@@ -108,7 +109,7 @@ class RoadmapListTile extends StatelessWidget {
                   height: 62,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF202B43),
+                    color: AppColors.raisedSurface,
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: accent.color.withValues(alpha: 0.65),
