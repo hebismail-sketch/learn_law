@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/app_theme.dart';
 import '../../domain/entities/step_branch.dart';
 import 'step_detail_screen.dart';
 
@@ -33,150 +34,154 @@ class BranchDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasContent = branch.description.trim().isNotEmpty ||
+    final hasContent =
+        branch.description.trim().isNotEmpty ||
         branch.subSteps.isNotEmpty ||
         branch.branches.isNotEmpty;
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: LegalTheme.background,
-        appBar: AppBar(
+    return rebuildWithAppTheme(
+      (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
           backgroundColor: LegalTheme.background,
-          surfaceTintColor: Colors.transparent,
-          foregroundColor: LegalTheme.textPrimary,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: true,
-          title: const Text(
-            'تفاصيل المسار',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: LegalTheme.textPrimary,
+          appBar: AppBar(
+            backgroundColor: LegalTheme.background,
+            surfaceTintColor: Colors.transparent,
+            foregroundColor: LegalTheme.textPrimary,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            centerTitle: true,
+            title: Text(
+              'تفاصيل المسار',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                color: LegalTheme.textPrimary,
+              ),
             ),
+            actions: const [ThemeToggleButton()],
           ),
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _header(),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _header(),
 
-              // The description comes first and in full, matching the order on
-              // the step screen.
-              if (branch.description.trim().isNotEmpty) ...[
-                const SizedBox(height: 18),
-                DetailSection(
-                  title: 'وصف المسار',
-                  icon: Icons.description_outlined,
-                  accent: _accentColor,
-                  child: Text(
-                    branch.description,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.9,
-                      color: LegalTheme.textPrimary,
+                // The description comes first and in full, matching the order on
+                // the step screen.
+                if (branch.description.trim().isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  DetailSection(
+                    title: 'وصف المسار',
+                    icon: Icons.description_outlined,
+                    accent: _accentColor,
+                    child: Text(
+                      branch.description,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.9,
+                        color: LegalTheme.textPrimary,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
 
-              if (branch.subSteps.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                DetailSection(
-                  title: 'خصائص وإجراءات المسار',
-                  icon: Icons.list_alt_rounded,
-                  accent: _accentColor,
-                  trailing: '${branch.subSteps.length} خطوة',
-                  // Each step gets its own tinted box, so a long procedure can
-                  // be scanned one line at a time instead of as a wall of text.
-                  child: Column(
-                    children: branch.subSteps
-                        .map(
-                          (step) => Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: LegalTheme.tint(_accentColor),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: _accentColor.withValues(alpha: 0.18),
+                if (branch.subSteps.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  DetailSection(
+                    title: 'خصائص وإجراءات المسار',
+                    icon: Icons.list_alt_rounded,
+                    accent: _accentColor,
+                    trailing: '${branch.subSteps.length} خطوة',
+                    // Each step gets its own tinted box, so a long procedure can
+                    // be scanned one line at a time instead of as a wall of text.
+                    child: Column(
+                      children: branch.subSteps
+                          .map(
+                            (step) => Container(
+                              width: double.infinity,
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 14,
                               ),
-                            ),
-                            child: Text(
-                              step,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                height: 1.7,
-                                color: LegalTheme.textPrimary,
+                              decoration: BoxDecoration(
+                                color: LegalTheme.tint(_accentColor),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _accentColor.withValues(alpha: 0.18),
+                                ),
                               ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ],
-
-              if (branch.branches.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                DetailSection(
-                  title: 'مسارات فرعية',
-                  icon: Icons.alt_route_rounded,
-                  accent: _accentColor,
-                  trailing: '${branch.branches.length} مسارات',
-                  child: Column(
-                    children: branch.branches
-                        .map(
-                          (child) => ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: _accentColor,
-                              size: 16,
-                            ),
-                            title: Text(
-                              child.title,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: LegalTheme.textPrimary,
-                              ),
-                            ),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BranchDetailScreen(
-                                  caseName: caseName,
-                                  branch: child,
+                              child: Text(
+                                step,
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  height: 1.7,
+                                  color: LegalTheme.textPrimary,
                                 ),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
+                          )
+                          .toList(),
+                    ),
                   ),
-                ),
-              ],
+                ],
 
-              if (!hasContent)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Text(
-                    'لم تتم إضافة تفاصيل لهذا المسار بعد.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF6B7280)),
+                if (branch.branches.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  DetailSection(
+                    title: 'مسارات فرعية',
+                    icon: Icons.alt_route_rounded,
+                    accent: _accentColor,
+                    trailing: '${branch.branches.length} مسارات',
+                    child: Column(
+                      children: branch.branches
+                          .map(
+                            (child) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                color: _accentColor,
+                                size: 16,
+                              ),
+                              title: Text(
+                                child.title,
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: LegalTheme.textPrimary,
+                                ),
+                              ),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BranchDetailScreen(
+                                    caseName: caseName,
+                                    branch: child,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
                   ),
-                ),
-            ],
+                ],
+
+                if (!hasContent)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Text(
+                      'لم تتم إضافة تفاصيل لهذا المسار بعد.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF6B7280)),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

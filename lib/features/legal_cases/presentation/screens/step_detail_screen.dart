@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/app_theme.dart';
 import '../../domain/entities/case_step_entity.dart';
 import '../../domain/entities/step_branch.dart';
 import '../widgets/step_palette.dart';
@@ -8,16 +9,13 @@ import '../widgets/step_palette.dart';
 class LegalTheme {
   const LegalTheme._();
 
-  static const Color background = Color(0xFF0B101D);
-  static const Color surface = Color(0xFF161F36);
-  static const Color surfaceRaised = Color(0xFF1E293B);
-  static const Color hairline = Color(0xFF3B4C7A);
-  // النصوص الأساسية بياض خالص عشان تبقى واضحة على الخلفية الداكنة.
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  // النص التانوي (الأوصاف) رمادي فاتح مش باهت.
-  static const Color textSecondary = Color(0xFFCBD5E1);
-  // العدادات واللمسات الثانوية: رمادي متوسط الوضوح.
-  static const Color textMuted = Color(0xFF94A3B8);
+  static Color get background => AppColors.background;
+  static Color get surface => AppColors.surface;
+  static Color get surfaceRaised => AppColors.raisedSurface;
+  static Color get hairline => AppColors.border;
+  static Color get textPrimary => AppColors.textPrimary;
+  static Color get textSecondary => AppColors.textSecondary;
+  static Color get textMuted => AppColors.textMuted;
 
   /// Outcome colours for a branch: accepting, rejecting, escalating.
   static Color branchColor(String title) {
@@ -90,46 +88,49 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
         ? step.branches[safeBranchIndex].subSteps
         : _stepsFromProse(step);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: LegalTheme.background,
-        appBar: AppBar(
+    return rebuildWithAppTheme(
+      (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
           backgroundColor: LegalTheme.background,
-          surfaceTintColor: Colors.transparent,
-          foregroundColor: LegalTheme.textPrimary,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: true,
-          title: const Text(
-            'تفاصيل المسار',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
-              color: LegalTheme.textPrimary,
+          appBar: AppBar(
+            backgroundColor: LegalTheme.background,
+            surfaceTintColor: Colors.transparent,
+            foregroundColor: LegalTheme.textPrimary,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            centerTitle: true,
+            title: Text(
+              'تفاصيل المسار',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 17,
+                color: LegalTheme.textPrimary,
+              ),
+            ),
+            actions: const [ThemeToggleButton()],
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _header(accent),
+                const SizedBox(height: 20),
+                _stepsCard(
+                  step: step,
+                  items: items,
+                  selectedIndex: safeBranchIndex,
+                  accent: accent,
+                  onBranchSelected: hasBranches && step.branches.length > 1
+                      ? (index) => setState(() => _selectedBranchIndex = index)
+                      : null,
+                ),
+              ],
             ),
           ),
+          bottomNavigationBar: _stepNavigation(accent),
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 8, 18, 36),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _header(accent),
-              const SizedBox(height: 20),
-              _stepsCard(
-                step: step,
-                items: items,
-                selectedIndex: safeBranchIndex,
-                accent: accent,
-                onBranchSelected: hasBranches && step.branches.length > 1
-                    ? (index) => setState(() => _selectedBranchIndex = index)
-                    : null,
-              ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: _stepNavigation(accent),
       ),
     );
   }
@@ -171,7 +172,7 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
               ),
               Text(
                 '${_currentStepIndex + 1} من ${widget.steps.length}',
-                style: const TextStyle(
+                style: TextStyle(
                   color: LegalTheme.textSecondary,
                   fontWeight: FontWeight.w600,
                 ),
@@ -245,8 +246,8 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
               ),
               child: Text(
                 'المرحلة (${step.stepNumber})',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: LegalTheme.textPrimary,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -370,7 +371,7 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
                 child: Icon(Icons.forum_rounded, color: accent.color, size: 19),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'خصائص وإجراءات المسار',
                 style: TextStyle(
                   fontSize: 16,
@@ -420,7 +421,7 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
           const SizedBox(height: 16),
         ],
         if (items.isEmpty)
-          const Text(
+          Text(
             'لا توجد خطوات مسجلة لهذه المرحلة.',
             textAlign: TextAlign.right,
             style: TextStyle(
@@ -547,11 +548,11 @@ class _StepTile extends StatelessWidget {
                   Text(
                     text,
                     textAlign: TextAlign.right,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16.5,
                       height: 1.8,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: LegalTheme.textPrimary,
                       shadows: [
                         Shadow(color: Color(0x3387CEFA), blurRadius: 8),
                       ],
@@ -644,7 +645,7 @@ class DetailSection extends StatelessWidget {
               if (trailing != null) ...[
                 Text(
                   trailing!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: LegalTheme.textMuted,
@@ -654,7 +655,7 @@ class DetailSection extends StatelessWidget {
               ],
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16.5,
                   fontWeight: FontWeight.w800,
                   color: LegalTheme.textPrimary,
@@ -664,8 +665,8 @@ class DetailSection extends StatelessWidget {
               Icon(icon, color: accent, size: 22),
             ],
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 14),
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
             child: Divider(height: 1, thickness: 1, color: LegalTheme.hairline),
           ),
           const SizedBox(height: 18),

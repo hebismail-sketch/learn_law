@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
 import '../widgets/roadmap_editor.dart';
@@ -337,6 +338,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         ),
         centerTitle: true,
         actions: [
+          const ThemeToggleButton(),
           // Refresh legal app content cache button
           IconButton(
             icon: const Icon(Icons.sync_rounded),

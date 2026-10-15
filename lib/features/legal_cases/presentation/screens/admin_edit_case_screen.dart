@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/app_theme.dart';
 import '../../../../core/sync/local_data_source.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../widgets/roadmap_editor.dart';
@@ -642,6 +643,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
+        actions: const [ThemeToggleButton()],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -1049,6 +1051,7 @@ class _CaseRoadmapEditorScreenState extends State<_CaseRoadmapEditorScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
+        actions: const [ThemeToggleButton()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

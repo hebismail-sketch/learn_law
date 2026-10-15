@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/app_theme.dart';
 import 'admin_hub_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -53,7 +54,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
       // Verify that the authenticated user's email matches the authorized admin email
       if (response.user != null) {
-        if (response.user!.email?.toLowerCase() != _authorizedAdminEmail.toLowerCase()) {
+        if (response.user!.email?.toLowerCase() !=
+            _authorizedAdminEmail.toLowerCase()) {
           // Immediately sign out unauthorized users
           await _supabase.auth.signOut();
           if (mounted) {
@@ -66,9 +68,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           // Navigate to AdminHubScreen and remove login screen from back stack
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (_) => const AdminHubScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const AdminHubScreen()),
           );
         }
       }
@@ -110,6 +110,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
+        actions: const [ThemeToggleButton()],
       ),
       body: Center(
         child: SingleChildScrollView(
