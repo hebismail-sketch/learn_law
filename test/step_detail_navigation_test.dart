@@ -33,10 +33,13 @@ void main() {
 
     expect(find.text('1 من 3'), findsOneWidget);
     expect(find.text('First step'), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('step-detail-header'))).height,
+      lessThanOrEqualTo(120),
+    );
 
     await tester.tap(find.text('التالية'));
     await tester.pumpAndSettle();
-
     expect(find.text('2 من 3'), findsOneWidget);
     expect(find.text('Second step'), findsOneWidget);
     expect(
@@ -86,7 +89,7 @@ void main() {
     final sentenceStyle = tester
         .widget<Text>(find.text('تبدأ المرحلة بتقديم الطلب.'))
         .style!;
-    expect(sentenceStyle.fontSize, 16.5);
+    expect(sentenceStyle.fontSize, 16);
     expect(sentenceStyle.color, Colors.white);
     expect(
       tester.getCenter(find.byKey(const ValueKey('step-tile-1'))).dx,
@@ -116,7 +119,7 @@ void main() {
       isA<BoxDecoration>().having(
         (decoration) => decoration.borderRadius,
         'border radius',
-        BorderRadius.circular(20),
+        BorderRadius.circular(13),
       ),
     );
   });

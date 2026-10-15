@@ -101,7 +101,7 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
             scrolledUnderElevation: 0,
             centerTitle: true,
             title: Text(
-              'تفاصيل المسار',
+              'تفاصيل المرحلة',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 17,
@@ -112,21 +112,27 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(18, 8, 18, 36),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _header(accent),
-                const SizedBox(height: 20),
-                _stepsCard(
-                  step: step,
-                  items: items,
-                  selectedIndex: safeBranchIndex,
-                  accent: accent,
-                  onBranchSelected: hasBranches && step.branches.length > 1
-                      ? (index) => setState(() => _selectedBranchIndex = index)
-                      : null,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _header(accent),
+                    const SizedBox(height: 13),
+                    _stepsCard(
+                      step: step,
+                      items: items,
+                      selectedIndex: safeBranchIndex,
+                      accent: accent,
+                      onBranchSelected: hasBranches && step.branches.length > 1
+                          ? (index) =>
+                                setState(() => _selectedBranchIndex = index)
+                          : null,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           bottomNavigationBar: _stepNavigation(accent),
@@ -152,13 +158,22 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
       decoration: BoxDecoration(
         color: LegalTheme.surface,
         border: Border(
-          top: BorderSide(color: accent.color.withValues(alpha: 0.35)),
+          top: BorderSide(color: accent.color.withValues(alpha: 0.22)),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: AppThemeController.isLight.value ? 0.04 : 0.16,
+            ),
+            blurRadius: 16,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
               Expanded(
@@ -168,13 +183,33 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
                       : null,
                   icon: const Icon(Icons.arrow_forward_rounded),
                   label: const Text('السابقة'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                 ),
               ),
-              Text(
-                '${_currentStepIndex + 1} من ${widget.steps.length}',
-                style: TextStyle(
-                  color: LegalTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: accent.color.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Text(
+                  '${_currentStepIndex + 1} من ${widget.steps.length}',
+                  style: TextStyle(
+                    color: LegalTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               Expanded(
@@ -184,6 +219,12 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
                       : null,
                   icon: const Icon(Icons.arrow_back_rounded),
                   label: const Text('التالية'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -206,99 +247,103 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
 
   Widget _header(StepAccent accent) {
     final step = widget.steps[_currentStepIndex];
+    final progress = (_currentStepIndex + 1) / widget.steps.length;
+    final isLight = AppThemeController.isLight.value;
+
     return Container(
+      key: const ValueKey('step-detail-header'),
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [accent.glow, accent.color],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
+        color: LegalTheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: accent.color.withValues(alpha: isLight ? 0.22 : 0.3),
         ),
-        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: accent.glow.withValues(alpha: 0.35),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: isLight ? 0.035 : 0.13),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The badge mirrors the roadmap pill: same colour, same wording.
-          Align(
-            alignment: Alignment.centerRight,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: accent.color.withValues(alpha: isLight ? 0.10 : 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(accent.icon, color: accent.color, size: 20),
               ),
-              child: Text(
-                'المرحلة (${step.stepNumber})',
-                style: TextStyle(
-                  color: LegalTheme.textPrimary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'المرحلة ${step.stepNumber}',
+                      style: TextStyle(
+                        color: isLight ? accent.glow : accent.color,
+                        fontSize: 10,
+                        height: 1.2,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      step.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.visible,
+                      style: TextStyle(
+                        color: LegalTheme.textPrimary,
+                        fontSize: 14.5,
+                        height: 1.3,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
+              const SizedBox(width: 9),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.raisedSurface,
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(color: LegalTheme.hairline),
+                ),
                 child: Text(
-                  step.title,
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 21,
-                    height: 1.45,
+                  '${_currentStepIndex + 1} / ${widget.steps.length}',
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: accent.color,
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
-              // The circle from the roadmap, kept so the page is recognisable.
-              Container(
-                width: 52,
-                height: 52,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.45),
-                    width: 2,
-                  ),
-                ),
-                child: Icon(accent.icon, color: Colors.white, size: 24),
-              ),
             ],
           ),
-          if (step.shortDescription.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              widget.caseName,
-              textAlign: TextAlign.right,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 13.5,
-                fontWeight: FontWeight.w500,
+          if (widget.steps.length > 1) ...[
+            const SizedBox(height: 7),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 3,
+                backgroundColor: accent.color.withValues(alpha: 0.10),
+                valueColor: AlwaysStoppedAnimation<Color>(accent.color),
               ),
             ),
           ],
@@ -329,60 +374,70 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: LegalTheme.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: LegalTheme.hairline),
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'الإجراءات القانونية',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: LegalTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
+                  horizontal: 10,
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: accent.color.withValues(alpha: 0.13),
+                  color: accent.color.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: accent.color.withValues(alpha: 0.28),
+                    color: accent.color.withValues(alpha: 0.25),
                   ),
                 ),
                 child: Text(
                   label,
                   style: TextStyle(
                     color: accent.color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              const SizedBox(width: 9),
+              const SizedBox(width: 10),
               Container(
                 key: const ValueKey('steps-heading-icon'),
-                width: 40,
-                height: 30,
+                width: 38,
+                height: 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: accent.color.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(20),
+                  color: accent.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
                   border: Border.all(
-                    color: accent.color.withValues(alpha: 0.34),
+                    color: accent.color.withValues(alpha: 0.28),
                   ),
                 ),
-                child: Icon(Icons.forum_rounded, color: accent.color, size: 19),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'خصائص وإجراءات المسار',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: LegalTheme.textPrimary,
-                ),
+                child: Icon(Icons.forum_rounded, color: accent.color, size: 20),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         if (onBranchSelected != null) ...[
           _BranchSelector(
             branches: step.branches,
@@ -410,8 +465,10 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
               ),
               child: Text(
                 branch.title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppThemeController.isLight.value
+                      ? LegalTheme.textPrimary
+                      : Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 13.5,
                 ),
@@ -459,6 +516,7 @@ class _StepTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final onRight = index.isOdd;
     final number = index.toString().padLeft(2, '0');
+    final isLight = AppThemeController.isLight.value;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -466,48 +524,32 @@ class _StepTile extends StatelessWidget {
         Align(
           alignment: onRight ? Alignment.centerRight : Alignment.centerLeft,
           child: FractionallySizedBox(
-            widthFactor: 0.88,
+            widthFactor: 0.92,
             child: Container(
               key: ValueKey('step-tile-$index'),
-              margin: const EdgeInsets.only(bottom: 20),
+              margin: const EdgeInsets.only(bottom: 16),
               padding: EdgeInsets.fromLTRB(
-                onRight ? 15 : 38,
-                16,
-                onRight ? 38 : 15,
-                18,
+                onRight ? 14 : 31,
+                14,
+                onRight ? 31 : 14,
+                15,
               ),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: onRight
-                      ? [
-                          Color.alphaBlend(
-                            accent.withValues(alpha: 0.13),
-                            LegalTheme.surfaceRaised,
-                          ),
-                          LegalTheme.surface,
-                        ]
-                      : [LegalTheme.surfaceRaised, LegalTheme.surface],
-                ),
+                color: LegalTheme.surface,
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(25),
-                  topRight: const Radius.circular(25),
-                  bottomLeft: Radius.circular(onRight ? 25 : 9),
-                  bottomRight: Radius.circular(onRight ? 9 : 25),
+                  topLeft: const Radius.circular(22),
+                  topRight: const Radius.circular(22),
+                  bottomLeft: Radius.circular(onRight ? 22 : 8),
+                  bottomRight: Radius.circular(onRight ? 8 : 22),
                 ),
-                border: Border.all(color: accent.withValues(alpha: 0.38)),
+                border: Border.all(color: LegalTheme.hairline),
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withValues(alpha: onRight ? 0.22 : 0.15),
-                    blurRadius: 24,
-                    spreadRadius: 2,
-                    offset: Offset(onRight ? -3 : 3, 11),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.28),
+                    color: Colors.black.withValues(
+                      alpha: isLight ? 0.045 : 0.14,
+                    ),
                     blurRadius: 12,
-                    offset: const Offset(0, 8),
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
@@ -516,46 +558,40 @@ class _StepTile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          'الخطوة $number',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ),
                       Container(
                         width: 7,
                         height: 7,
                         decoration: BoxDecoration(
                           color: accent,
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: accent.withValues(alpha: 0.6),
-                              blurRadius: 8,
-                            ),
-                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          'الإجراء $number',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: isLight
+                                ? accent
+                                : accent.withValues(alpha: 0.9),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     text,
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      fontSize: 16.5,
-                      height: 1.8,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      height: 1.7,
+                      fontWeight: FontWeight.w600,
                       color: LegalTheme.textPrimary,
-                      shadows: [
-                        Shadow(color: Color(0x3387CEFA), blurRadius: 8),
-                      ],
                     ),
                   ),
                 ],
@@ -564,34 +600,23 @@ class _StepTile extends StatelessWidget {
           ),
         ),
         Positioned(
-          top: 12,
-          right: onRight ? -18 : null,
-          left: onRight ? null : -18,
+          top: 10,
+          right: onRight ? -13 : null,
+          left: onRight ? null : -13,
           child: Container(
             key: ValueKey('step-number-$index'),
-            width: 48,
-            height: 48,
+            width: 38,
+            height: 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  accent,
-                  Color.alphaBlend(
-                    Colors.white.withValues(alpha: 0.18),
-                    accent,
-                  ),
-                ],
-              ),
-              border: Border.all(color: LegalTheme.background, width: 3),
+              color: accent,
+              border: Border.all(color: LegalTheme.surface, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: accent.withValues(alpha: 0.48),
-                  blurRadius: 15,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 5),
+                  color: accent.withValues(alpha: isLight ? 0.2 : 0.32),
+                  blurRadius: 9,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -599,7 +624,7 @@ class _StepTile extends StatelessWidget {
               number,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.3,
               ),
@@ -704,25 +729,57 @@ class _BranchSelector extends StatelessWidget {
           final accent = LegalTheme.branchColor(branch.title);
           final isSelected = index == selectedIndex;
 
-          return GestureDetector(
-            onTap: () => onSelect(index),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isSelected ? accent : LegalTheme.surfaceRaised,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected ? accent : accent.withValues(alpha: 0.35),
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onSelect(index),
+              borderRadius: BorderRadius.circular(22),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isSelected ? accent : LegalTheme.surfaceRaised,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: isSelected ? accent : accent.withValues(alpha: 0.3),
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: accent.withValues(alpha: 0.24),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
                 ),
-              ),
-              child: Text(
-                branch.title,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : LegalTheme.textPrimary,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  fontSize: 13.5,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSelected) ...[
+                      const Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
+                    ],
+                    Text(
+                      branch.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : LegalTheme.textPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
