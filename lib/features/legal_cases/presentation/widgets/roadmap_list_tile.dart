@@ -26,6 +26,8 @@ class RoadmapListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = StepPalette.of(index + 1);
+    final itemNumber = (index + 1).toString().padLeft(2, '0');
+    final isLight = AppThemeController.isLight.value;
 
     return Center(
       child: ConstrainedBox(
@@ -36,13 +38,22 @@ class RoadmapListTile extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: accent.color.withValues(alpha: isLight ? 0.20 : 0.24),
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.28),
-                blurRadius: 16,
-                offset: const Offset(0, 7),
+                color: (isLight ? accent.glow : Colors.black).withValues(
+                  alpha: isLight ? 0.10 : 0.26,
+                ),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: accent.color.withValues(alpha: isLight ? 0.06 : 0.10),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -51,25 +62,55 @@ class RoadmapListTile extends StatelessWidget {
             children: [
               Material(
                 color: Colors.transparent,
-                borderRadius: BorderRadius.circular(36),
+                borderRadius: BorderRadius.circular(32),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: onTap,
+                  splashColor: accent.color.withValues(alpha: 0.10),
+                  highlightColor: accent.color.withValues(alpha: 0.04),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 68,
-                      vertical: 25,
+                      horizontal: 74,
+                      vertical: 20,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: accent.color.withValues(
+                              alpha: isLight ? 0.10 : 0.14,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: accent.color.withValues(alpha: 0.24),
+                            ),
+                          ),
+                          child: Text(
+                            'الملف $itemNumber',
+                            style: TextStyle(
+                              color: isLight ? accent.glow : accent.color,
+                              fontSize: 11,
+                              height: 1.2,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           title,
                           textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: AppColors.textPrimary,
-                            fontSize: 18,
-                            height: 1.4,
+                            fontSize: 17,
+                            height: 1.35,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -79,9 +120,11 @@ class RoadmapListTile extends StatelessWidget {
                           Text(
                             subtitle!,
                             textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: AppColors.textSecondary,
-                              fontSize: 13.5,
+                              fontSize: 13,
                               height: 1.5,
                               fontWeight: FontWeight.w500,
                             ),
@@ -101,30 +144,67 @@ class RoadmapListTile extends StatelessWidget {
                 ),
               ),
               Positioned(
-                key: ValueKey('roadmap-list-icon-$index'),
-                right: -8,
-                top: 7,
-                child: Container(
-                  width: 62,
-                  height: 62,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.raisedSurface,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: accent.color.withValues(alpha: 0.65),
-                      width: 1.4,
+                left: 12,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.raisedSurface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.border),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accent.color.withValues(alpha: 0.28),
-                        blurRadius: 16,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+                    child: Icon(
+                      Icons.chevron_left_rounded,
+                      color: AppColors.textMuted,
+                      size: 22,
+                    ),
                   ),
-                  child: Icon(icon, color: accent.color, size: 27),
+                ),
+              ),
+              Positioned(
+                right: -8,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Container(
+                    key: ValueKey('roadmap-list-icon-$index'),
+                    width: 70,
+                    height: 70,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.raisedSurface,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: accent.color.withValues(alpha: 0.55),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accent.color.withValues(
+                            alpha: isLight ? 0.16 : 0.25,
+                          ),
+                          blurRadius: 18,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accent.color.withValues(
+                          alpha: isLight ? 0.12 : 0.18,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: accent.color, size: 26),
+                    ),
+                  ),
                 ),
               ),
             ],

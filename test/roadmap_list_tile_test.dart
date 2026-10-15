@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:learn_law/core/app_theme.dart';
 import 'package:learn_law/features/legal_cases/presentation/widgets/roadmap_list_tile.dart';
 
 void main() {
-  testWidgets('centers an oval dark list tile with a solid fill', (
+  testWidgets('centers a polished capsule tile with a solid fill', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -26,15 +27,18 @@ void main() {
 
     final decoration =
         tester.widget<Container>(tile).decoration! as BoxDecoration;
-    expect(decoration.borderRadius, BorderRadius.circular(36));
-    expect(decoration.color, const Color(0xFF161F36));
+    expect(decoration.borderRadius, BorderRadius.circular(32));
+    expect(decoration.color, AppColors.darkSurface);
     expect(decoration.gradient, isNull);
+    expect(decoration.boxShadow, hasLength(2));
+    expect(find.text('الملف 01'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_left_rounded), findsOneWidget);
 
     final iconRect = tester.getRect(
       find.byKey(const ValueKey('roadmap-list-icon-0')),
     );
-    expect(iconRect.width, 62);
-    expect(iconRect.height, 62);
+    expect(iconRect.width, 70);
+    expect(iconRect.height, 70);
     expect(iconRect.right, greaterThan(tileRect.right));
     expect(iconRect.left, lessThan(tileRect.right - 40));
     final iconDecoration =
@@ -84,7 +88,7 @@ void main() {
                   )
                   .decoration!
               as BoxDecoration;
-      expect(decoration.color, const Color(0xFF161F36));
+      expect(decoration.color, AppColors.darkSurface);
       expect(decoration.gradient, isNull);
     }
   });
