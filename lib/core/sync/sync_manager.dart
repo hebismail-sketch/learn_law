@@ -78,7 +78,11 @@ class SyncManager {
       final pushed = await _pushQueue();
       final pulled = await _pullChanges();
       _emit(SyncStatus.success);
-      return SyncResult(pushed: pushed, pulled: pulled, status: SyncStatus.success);
+      return SyncResult(
+        pushed: pushed,
+        pulled: pulled,
+        status: SyncStatus.success,
+      );
     } catch (e) {
       _emit(SyncStatus.failure);
       return SyncResult(status: SyncStatus.failure, error: e.toString());
@@ -89,9 +93,9 @@ class SyncManager {
 
   /// Sends every queued operation and clears the ones the server accepted.
   Future<int> _pushQueue() async {
-    final pending = await (db.select(db.syncQueue)
-          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-        .get();
+    final pending = await (db.select(
+      db.syncQueue,
+    )..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
 
     var pushed = 0;
     for (final op in pending) {
@@ -111,8 +115,9 @@ class SyncManager {
 
   Future<void> _applyRemote(PendingOp op) async {
     final table = supabase.from(op.targetTable);
-    final payload =
-        op.payload == null ? <String, dynamic>{} : jsonDecode(op.payload!) as Map<String, dynamic>;
+    final payload = op.payload == null
+        ? <String, dynamic>{}
+        : jsonDecode(op.payload!) as Map<String, dynamic>;
 
     switch (op.operation) {
       case 'insert':
@@ -124,10 +129,12 @@ class SyncManager {
       case 'delete':
         // Soft delete on the server so other devices learn about the removal
         // instead of the row simply vanishing for them.
-        await table.update(<String, dynamic>{
-          'deleted_at': DateTime.now().toUtc().toIso8601String(),
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('id', op.rowId);
+        await table
+            .update(<String, dynamic>{
+              'deleted_at': DateTime.now().toUtc().toIso8601String(),
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
+            })
+            .eq('id', op.rowId);
       default:
         throw ArgumentError('Unknown operation: ${op.operation}');
     }
@@ -182,6 +189,38 @@ class SyncManager {
         await _setLastSyncedAt(table, nextWatermark);
       }
     }
+    return pulled;
+  }
+
+  /// Refreshes every step for a single case before its roadmap is displayed.
+  ///
+  /// The normal startup pull is paginated across all tables and may continue
+  /// after the UI has opened. This focused pull makes sure a case opened during
+  /// that initial sync does not appear to have missing steps. Offline users
+  /// keep using the local copy.
+  Future<int> refreshCaseSteps(String caseId) async {
+    if (!await connectivity.isOnline) return 0;
+
+    var pulled = 0;
+    var offset = 0;
+    late List<dynamic> response;
+
+    do {
+      response = await supabase
+          .from(SyncTables.caseSteps)
+          .select()
+          .eq('case_id', caseId)
+          .order('step_number', ascending: true)
+          .order('id', ascending: true)
+          .range(offset, offset + _pullPageSize - 1);
+
+      for (final row in response.cast<Map<String, dynamic>>()) {
+        await _mergeRemoteRow(SyncTables.caseSteps, row);
+        pulled++;
+      }
+      offset += response.length;
+    } while (response.length == _pullPageSize);
+
     return pulled;
   }
 
@@ -249,7 +288,9 @@ class SyncManager {
 
     switch (table) {
       case SyncTables.categories:
-        await db.into(db.categories).insertOnConflictUpdate(
+        await db
+            .into(db.categories)
+            .insertOnConflictUpdate(
               CategoriesCompanion.insert(
                 id: id,
                 name: (row['name'] ?? '').toString(),
@@ -259,7 +300,9 @@ class SyncManager {
               ),
             );
       case SyncTables.subcategories:
-        await db.into(db.subcategories).insertOnConflictUpdate(
+        await db
+            .into(db.subcategories)
+            .insertOnConflictUpdate(
               SubcategoriesCompanion.insert(
                 id: id,
                 categoryId: (row['category_id'] ?? '').toString(),
@@ -269,7 +312,9 @@ class SyncManager {
               ),
             );
       case SyncTables.legalCases:
-        await db.into(db.legalCases).insertOnConflictUpdate(
+        await db
+            .into(db.legalCases)
+            .insertOnConflictUpdate(
               LegalCasesCompanion.insert(
                 id: id,
                 subcategoryId: (row['subcategory_id'] ?? '').toString(),
@@ -280,7 +325,9 @@ class SyncManager {
               ),
             );
       case SyncTables.caseSteps:
-        await db.into(db.caseSteps).insertOnConflictUpdate(
+        await db
+            .into(db.caseSteps)
+            .insertOnConflictUpdate(
               CaseStepsCompanion.insert(
                 id: id,
                 caseId: (row['case_id'] ?? '').toString(),
@@ -311,7 +358,9 @@ class SyncManager {
       case SyncTables.categories:
         return query(db.select(db.categories)..where((t) => t.id.equals(id)));
       case SyncTables.subcategories:
-        return query(db.select(db.subcategories)..where((t) => t.id.equals(id)));
+        return query(
+          db.select(db.subcategories)..where((t) => t.id.equals(id)),
+        );
       case SyncTables.legalCases:
         return query(db.select(db.legalCases)..where((t) => t.id.equals(id)));
       case SyncTables.caseSteps:
@@ -322,10 +371,11 @@ class SyncManager {
   }
 
   Future<bool> _hasPending(String table, String id) async {
-    final row = await (db.select(db.syncQueue)
-          ..where((t) => t.targetTable.equals(table) & t.rowId.equals(id))
-          ..limit(1))
-        .getSingleOrNull();
+    final row =
+        await (db.select(db.syncQueue)
+              ..where((t) => t.targetTable.equals(table) & t.rowId.equals(id))
+              ..limit(1))
+            .getSingleOrNull();
     return row != null;
   }
 
@@ -339,15 +389,19 @@ class SyncManager {
 
   /// Per-table watermark of the last successful pull.
   Future<DateTime> _lastSyncedAt(String table) async {
-    final row = await (db.select(db.syncState)
-          ..where((t) => t.targetTable.equals(table))
-          ..limit(1))
-        .getSingleOrNull();
-    return row?.lastSyncedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    final row =
+        await (db.select(db.syncState)
+              ..where((t) => t.targetTable.equals(table))
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.lastSyncedAt ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 
   Future<void> _setLastSyncedAt(String table, DateTime at) async {
-    await db.into(db.syncState).insertOnConflictUpdate(
+    await db
+        .into(db.syncState)
+        .insertOnConflictUpdate(
           SyncStateCompanion.insert(targetTable: table, lastSyncedAt: at),
         );
   }

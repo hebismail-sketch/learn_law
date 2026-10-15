@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
+import '../../../../core/sync/sync_refresh_listener.dart';
 import '../../domain/entities/category_entity.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
@@ -32,7 +33,10 @@ class SubcategoriesScreen extends StatelessWidget {
           actions: const [ThemeToggleButton()],
         ),
         body: StarryBackground(
-          child: BlocBuilder<LegalCubit, LegalState>(
+          child: SyncRefreshListener(
+            onSyncComplete: () =>
+                context.read<LegalCubit>().refreshSubcategories(category.id),
+            child: BlocBuilder<LegalCubit, LegalState>(
             builder: (context, state) {
               if (state is LegalLoading) {
                 return const Center(
@@ -93,6 +97,7 @@ class SubcategoriesScreen extends StatelessWidget {
               }
               return const SizedBox.shrink();
             },
+            ),
           ),
         ),
       ),

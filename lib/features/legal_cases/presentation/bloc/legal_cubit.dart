@@ -57,4 +57,20 @@ class LegalCubit extends Cubit<LegalState> {
       emit(LegalError(e.toString()));
     }
   }
+
+  Future<void> refreshCategories() async {
+    emit(CategoriesLoaded(await getCategoriesUseCase()));
+  }
+
+  Future<void> refreshSubcategories(String categoryId) async {
+    emit(SubcategoriesLoaded(await getSubcategoriesUseCase(categoryId)));
+  }
+
+  Future<void> refreshLegalCases(String subcategoryId) async {
+    emit(LegalCasesLoaded(await getLegalCasesUseCase(subcategoryId)));
+  }
+
+  Future<void> refreshCaseSteps(String caseId) async {
+    emit(CaseStepsLoaded(await getCaseStepsUseCase(caseId)));
+  }
 }

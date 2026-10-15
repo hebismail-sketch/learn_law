@@ -284,8 +284,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => BlocProvider(
-                      create: (_) =>
-                          sl<LegalCubit>()..fetchCaseSteps(legalCaseEntity.id),
+                      create: (_) => sl<LegalCubit>(),
                       child: CaseRoadmapScreen(legalCase: legalCaseEntity),
                     ),
                   ),

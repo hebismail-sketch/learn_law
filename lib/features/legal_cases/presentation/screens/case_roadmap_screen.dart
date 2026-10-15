@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/app_theme.dart';
+import '../../../../core/injection_container.dart';
+import '../../../../core/sync/sync_manager.dart';
+import '../../../../core/sync/sync_refresh_listener.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../../domain/entities/case_step_entity.dart';
 import '../../domain/entities/step_branch.dart';
@@ -13,10 +16,49 @@ import 'step_detail_screen.dart';
 import 'branch_detail_screen.dart';
 import '../widgets/step_palette.dart';
 
-class CaseRoadmapScreen extends StatelessWidget {
+class CaseRoadmapScreen extends StatefulWidget {
   final LegalCaseEntity legalCase;
 
   const CaseRoadmapScreen({super.key, required this.legalCase});
+
+  @override
+  State<CaseRoadmapScreen> createState() => _CaseRoadmapScreenState();
+}
+
+class _CaseRoadmapScreenState extends State<CaseRoadmapScreen> {
+  bool _isRefreshingRemoteSteps = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCaseSteps());
+  }
+
+  Future<void> _loadCaseSteps() async {
+    final cubit = context.read<LegalCubit>();
+    await cubit.fetchCaseSteps(widget.legalCase.id);
+
+    try {
+      await sl<SyncManager>().refreshCaseSteps(widget.legalCase.id);
+    } catch (error, stackTrace) {
+      debugPrint('Failed to refresh case steps: $error\n$stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذر تحديث مسارات القضية. يتم عرض البيانات المحفوظة على الهاتف.',
+              textAlign: TextAlign.right,
+            ),
+          ),
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isRefreshingRemoteSteps = false);
+      await cubit.fetchCaseSteps(widget.legalCase.id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +67,7 @@ class CaseRoadmapScreen extends StatelessWidget {
         backgroundColor: AppColors.background,
         appBar: AppBar(
           title: Text(
-            legalCase.name,
+            widget.legalCase.name,
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 18,
@@ -45,79 +87,113 @@ class CaseRoadmapScreen extends StatelessWidget {
             const Positioned.fill(
               child: RepaintBoundary(child: _GridBackgroundPattern()),
             ),
-            BlocBuilder<LegalCubit, LegalState>(
-              builder: (context, state) {
-                if (state is LegalLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF38BDF8)),
-                  );
-                }
+            SyncRefreshListener(
+              onSyncComplete: () => context.read<LegalCubit>().refreshCaseSteps(
+                widget.legalCase.id,
+              ),
+              child: BlocBuilder<LegalCubit, LegalState>(
+                builder: (context, state) {
+                  if (state is LegalLoading) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF38BDF8),
+                      ),
+                    );
+                  }
 
-                if (state is CaseStepsLoaded) {
-                  final steps = state.caseSteps;
+                  if (state is CaseStepsLoaded) {
+                    final steps = state.caseSteps;
 
-                  if (steps.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.route_outlined,
-                            size: 64,
-                            color: Color(0xFF38BDF8),
+                    if (steps.isEmpty) {
+                      if (_isRefreshingRemoteSteps) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                'جارٍ التحقق من المسارات المحفوظة...',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'لم يتم إضافة خطوات ومسارات بعد',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.bold,
+                        );
+                      }
+
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.route_outlined,
+                              size: 64,
+                              color: Color(0xFF38BDF8),
                             ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'لم يتم إضافة خطوات ومسارات بعد',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 24,
+                      ),
+                      child: Column(
+                        children: [
+                          _buildHeaderBadge(steps.length),
+                          const SizedBox(height: 32),
+                          _RoadmapGraph(
+                            caseName: widget.legalCase.name,
+                            caseId: widget.legalCase.id,
+                            steps: steps,
                           ),
+                          const SizedBox(height: 50),
                         ],
                       ),
                     );
                   }
 
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 24,
-                    ),
-                    child: Column(
-                      children: [
-                        _buildHeaderBadge(steps.length),
-                        const SizedBox(height: 32),
-                        _RoadmapGraph(
-                          caseName: legalCase.name,
-                          caseId: legalCase.id,
-                          steps: steps,
+                  if (state is LegalError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'حدث خطأ: ${state.message}',
+                          style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 50),
-                      ],
-                    ),
-                  );
-                }
-
-                if (state is LegalError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'حدث خطأ: ${state.message}',
-                        style: const TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
                       ),
-                    ),
-                  );
-                }
+                    );
+                  }
 
-                return const SizedBox.shrink();
-              },
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
           ],
         ),
@@ -167,7 +243,7 @@ class CaseRoadmapScreen extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    legalCase.name,
+                    widget.legalCase.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,

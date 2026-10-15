@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
+import '../../../../core/sync/sync_refresh_listener.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
 import 'subcategories_screen.dart';
@@ -157,7 +158,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
               // Categories List
               Expanded(
-                child: BlocBuilder<LegalCubit, LegalState>(
+                child: SyncRefreshListener(
+                  onSyncComplete: () =>
+                      context.read<LegalCubit>().refreshCategories(),
+                  child: BlocBuilder<LegalCubit, LegalState>(
                   builder: (context, state) {
                     if (state is LegalLoading) {
                       return const Center(
@@ -214,6 +218,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                                         ),
                                                   child: SubcategoriesScreen(
                                                     category: category,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
