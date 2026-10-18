@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/app_theme.dart';
+import '../../../../core/legal_text.dart';
 import '../../../../core/sync/local_data_source.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../widgets/roadmap_editor.dart';
+import '../widgets/legal_text_input_formatter.dart';
 import '../../../../core/injection_container.dart';
 
 class AdminEditCaseScreen extends StatefulWidget {
@@ -362,7 +364,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
 
   // Update case details and steps in Supabase
   Future<void> _saveChanges() async {
-    final title = _titleController.text.trim();
+    final title = stripLegalTextSymbols(_titleController.text).trim();
     if (title.isEmpty) {
       _showSnackBar('يرجى إدخال اسم القضية', isError: true);
       return;
@@ -374,7 +376,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
       await _local.updateLegalCase(
         id: widget.legalCase.id,
         title: title,
-        description: _descController.text.trim(),
+        description: stripLegalTextSymbols(_descController.text).trim(),
       );
 
       // 2. Soft delete steps the admin deleted in the editor.
@@ -393,7 +395,11 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
       //    before the descriptions are re-encoded — otherwise a link picked as
       //    «to step 3» would end up on whichever stage slid into that slot.
       final keeps = _steps
-          .map((s) => (s['title'] ?? '').toString().trim().isNotEmpty)
+          .map(
+            (s) => stripLegalTextSymbols(
+              (s['title'] ?? '').toString(),
+            ).trim().isNotEmpty,
+          )
           .toList();
       final plan = renumberSteps(keeps);
       final remap = plan.remap;
@@ -423,7 +429,9 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
           description: (step['short_description'] ?? '').toString(),
           branches: branches,
         );
-        final stepTitle = (step['title'] ?? '').toString();
+        final stepTitle = stripLegalTextSymbols(
+          (step['title'] ?? '').toString(),
+        );
 
         final id = step['id']?.toString();
         if (id == null || id.isEmpty) {
@@ -498,8 +506,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         .map(
           (s) => <String, dynamic>{
             'id': null,
-            'title': s.titleController.text.trim(),
-            'short_description': s.descController.text.trim(),
+            'title': stripLegalTextSymbols(s.titleController.text).trim(),
+            'short_description': stripLegalTextSymbols(
+              s.descController.text,
+            ).trim(),
           },
         )
         .toList();
@@ -673,6 +683,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                           TextField(
                             controller: _titleController,
                             textAlign: TextAlign.right,
+                            inputFormatters: [legalTextInputFormatter],
                             decoration: const InputDecoration(
                               labelText: 'اسم القضية',
                               border: OutlineInputBorder(),
@@ -682,6 +693,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                           TextField(
                             controller: _descController,
                             textAlign: TextAlign.right,
+                            inputFormatters: [legalTextInputFormatter],
                             maxLines: 2,
                             decoration: const InputDecoration(
                               labelText: 'الوصف المختصر',

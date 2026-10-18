@@ -3,8 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
+import '../../../../core/legal_text.dart';
 import '../../../../core/sync/local_data_source.dart';
 import '../widgets/roadmap_editor.dart';
+import '../widgets/legal_text_input_formatter.dart';
 
 class AdminHubScreen extends StatefulWidget {
   const AdminHubScreen({super.key});
@@ -228,7 +230,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   // Save the full case and all its roadmap steps
   Future<void> _saveFullCase() async {
-    final title = _caseTitleController.text.trim();
+    final title = stripLegalTextSymbols(_caseTitleController.text).trim();
     if (_selectedSubcategoryId == null) {
       _showSnackBar('يرجى تحديد القسم الفرعي التابع له القضية', isError: true);
       return;
@@ -244,7 +246,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       final caseId = await _local.insertLegalCase(
         subcategoryId: _selectedSubcategoryId!,
         title: title,
-        description: _caseDescController.text.trim(),
+        description: stripLegalTextSymbols(_caseDescController.text).trim(),
       );
 
       // 2. Insert the steps in the order they appear on screen.
@@ -256,7 +258,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       //    number they were picked against — point every path at the wrong
       //    stage.
       final keeps = _stepInputs
-          .map((s) => s.titleController.text.trim().isNotEmpty)
+          .map(
+            (s) =>
+                stripLegalTextSymbols(s.titleController.text).trim().isNotEmpty,
+          )
           .toList();
       final plan = renumberSteps(keeps);
       final remap = plan.remap;
@@ -269,8 +274,12 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
       var saved = 0;
       for (int i = 0; i < _stepInputs.length; i++) {
         final stepInput = _stepInputs[i];
-        final stepTitle = stepInput.titleController.text.trim();
-        final stepDesc = stepInput.descController.text.trim();
+        final stepTitle = stripLegalTextSymbols(
+          stepInput.titleController.text,
+        ).trim();
+        final stepDesc = stripLegalTextSymbols(
+          stepInput.descController.text,
+        ).trim();
 
         if (!keeps[i]) continue;
 
@@ -484,6 +493,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                         TextField(
                           controller: _caseTitleController,
                           textAlign: TextAlign.right,
+                          inputFormatters: [legalTextInputFormatter],
                           decoration: const InputDecoration(
                             labelText: 'اسم القضية (مثال: دعوى نفقة صغار)',
                             border: OutlineInputBorder(),
@@ -493,6 +503,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                         TextField(
                           controller: _caseDescController,
                           textAlign: TextAlign.right,
+                          inputFormatters: [legalTextInputFormatter],
                           maxLines: 2,
                           decoration: const InputDecoration(
                             labelText: 'وصف مختصر للقضية (اختياري)',

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../../core/legal_text.dart';
 import '../../domain/entities/step_branch.dart';
 
 class CaseStepModel {
@@ -13,10 +14,13 @@ class CaseStepModel {
     required this.id,
     required this.caseId,
     required this.stepNumber,
-    required this.title,
-    required this.shortDescription,
+    required String title,
+    required String shortDescription,
     this.branches = const [],
-  });
+  }) : title = stripLegalTextSymbols(title),
+       shortDescription = stripLegalTextSymbolsFromStepDescription(
+         shortDescription,
+       );
 
   factory CaseStepModel.fromJson(Map<String, dynamic> json) {
     List<StepBranch> parsedBranches = [];

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../legal_text.dart';
 import 'app_database.dart';
 import 'sync_types.dart';
 
@@ -31,10 +32,7 @@ class LocalLegalCaseSearchResult {
 abstract class LocalDataSource {
   Future<List<LocalCategory>> getCategories();
 
-  Future<String> insertCategory({
-    required String name,
-    String? description,
-  });
+  Future<String> insertCategory({required String name, String? description});
 
   Future<void> updateCategory({
     required String id,
@@ -58,10 +56,7 @@ abstract class LocalDataSource {
     required String name,
   });
 
-  Future<void> updateSubcategory({
-    required String id,
-    required String name,
-  });
+  Future<void> updateSubcategory({required String id, required String name});
 
   Future<void> deleteSubcategory({required String id});
 
@@ -133,7 +128,9 @@ class LocalDataSourceImpl implements LocalDataSource {
     final id = _uuid.v4();
 
     await db.transaction(() async {
-      await db.into(db.categories).insert(
+      await db
+          .into(db.categories)
+          .insert(
             CategoriesCompanion.insert(
               id: id,
               name: name,
@@ -174,12 +171,12 @@ class LocalDataSourceImpl implements LocalDataSource {
       // That is why `description` is passed as Value.absent when the caller
       // left it out: an omitted argument must not mean "erase it".
       await (db.update(db.categories)..where((t) => t.id.equals(id))).write(
-            CategoriesCompanion(
-              name: Value(name),
-              description: Value.absentIfNull(description),
-              updatedAt: Value(now),
-            ),
-          );
+        CategoriesCompanion(
+          name: Value(name),
+          description: Value.absentIfNull(description),
+          updatedAt: Value(now),
+        ),
+      );
 
       await _enqueue(
         table: SyncTables.categories,
@@ -188,10 +185,7 @@ class LocalDataSourceImpl implements LocalDataSource {
         // `id` is deliberately absent: the queue row already carries it in
         // rowId, and sending it twice invites a mismatch. `description` is
         // omitted for the same reason it was not written above.
-        payload: <String, dynamic>{
-          'name': name,
-          'description': ?description,
-        },
+        payload: <String, dynamic>{'name': name, 'description': ?description},
         at: now,
       );
     });
@@ -205,11 +199,8 @@ class LocalDataSourceImpl implements LocalDataSource {
       // Soft delete: the row survives locally so the delete can be pushed
       // and so a later pull can confirm it.
       await (db.update(db.categories)..where((t) => t.id.equals(id))).write(
-            CategoriesCompanion(
-              deletedAt: Value(now),
-              updatedAt: Value(now),
-            ),
-          );
+        CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
 
       await _enqueue(
         table: SyncTables.categories,
@@ -225,19 +216,17 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<List<LocalSubcategory>> getSubcategories(String categoryId) {
-    return (db.select(db.subcategories)
-          ..where(
-            (t) =>
-                t.categoryId.equals(categoryId) & t.deletedAt.isNull(),
-          ))
+    return (db.select(
+          db.subcategories,
+        )..where((t) => t.categoryId.equals(categoryId) & t.deletedAt.isNull()))
         .get();
   }
 
   @override
   Future<LocalSubcategory?> findSubcategory(String id) {
-    return (db.select(db.subcategories)
-          ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
-        .getSingleOrNull();
+    return (db.select(
+      db.subcategories,
+    )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
   }
 
   @override
@@ -249,7 +238,9 @@ class LocalDataSourceImpl implements LocalDataSource {
     final id = _uuid.v4();
 
     await db.transaction(() async {
-      await db.into(db.subcategories).insert(
+      await db
+          .into(db.subcategories)
+          .insert(
             SubcategoriesCompanion.insert(
               id: id,
               categoryId: categoryId,
@@ -283,11 +274,8 @@ class LocalDataSourceImpl implements LocalDataSource {
 
     await db.transaction(() async {
       await (db.update(db.subcategories)..where((t) => t.id.equals(id))).write(
-            SubcategoriesCompanion(
-              name: Value(name),
-              updatedAt: Value(now),
-            ),
-          );
+        SubcategoriesCompanion(name: Value(name), updatedAt: Value(now)),
+      );
 
       await _enqueue(
         table: SyncTables.subcategories,
@@ -322,11 +310,9 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   @override
   Future<List<LocalLegalCase>> getLegalCases(String subcategoryId) {
-    return (db.select(db.legalCases)
-          ..where(
-            (t) =>
-                t.subcategoryId.equals(subcategoryId) & t.deletedAt.isNull(),
-          ))
+    return (db.select(db.legalCases)..where(
+          (t) => t.subcategoryId.equals(subcategoryId) & t.deletedAt.isNull(),
+        ))
         .get();
   }
 
@@ -337,13 +323,12 @@ class LocalDataSourceImpl implements LocalDataSource {
     final normalizedQuery = query.trim();
     if (normalizedQuery.isEmpty) return const [];
 
-    final caseRows = await (db.select(db.legalCases)
-          ..where(
-            (row) =>
-                row.deletedAt.isNull() &
-                row.title.like('%$normalizedQuery%'),
-          ))
-        .get();
+    final caseRows =
+        await (db.select(db.legalCases)..where(
+              (row) =>
+                  row.deletedAt.isNull() & row.title.like('%$normalizedQuery%'),
+            ))
+            .get();
     final activeCategories = await getCategories();
     final activeCategoryIds = activeCategories.map((row) => row.id).toSet();
     final activeSubcategories = await db.select(db.subcategories).get();
@@ -384,14 +369,20 @@ class LocalDataSourceImpl implements LocalDataSource {
   }) async {
     final now = DateTime.now().toUtc();
     final id = _uuid.v4();
+    final cleanTitle = stripLegalTextSymbols(title);
+    final cleanDescription = description == null
+        ? null
+        : stripLegalTextSymbols(description);
 
     await db.transaction(() async {
-      await db.into(db.legalCases).insert(
+      await db
+          .into(db.legalCases)
+          .insert(
             LegalCasesCompanion.insert(
               id: id,
               subcategoryId: subcategoryId,
-              title: title,
-              description: Value(description),
+              title: cleanTitle,
+              description: Value(cleanDescription),
               updatedAt: now,
             ),
           );
@@ -403,8 +394,8 @@ class LocalDataSourceImpl implements LocalDataSource {
         payload: <String, dynamic>{
           'id': id,
           'subcategory_id': subcategoryId,
-          'title': title,
-          'description': description,
+          'title': cleanTitle,
+          'description': cleanDescription,
         },
         at: now,
       );
@@ -420,23 +411,27 @@ class LocalDataSourceImpl implements LocalDataSource {
     String? description,
   }) async {
     final now = DateTime.now().toUtc();
+    final cleanTitle = stripLegalTextSymbols(title);
+    final cleanDescription = description == null
+        ? null
+        : stripLegalTextSymbols(description);
 
     await db.transaction(() async {
       await (db.update(db.legalCases)..where((t) => t.id.equals(id))).write(
-            LegalCasesCompanion(
-              title: Value(title),
-              description: Value.absentIfNull(description),
-              updatedAt: Value(now),
-            ),
-          );
+        LegalCasesCompanion(
+          title: Value(cleanTitle),
+          description: Value.absentIfNull(cleanDescription),
+          updatedAt: Value(now),
+        ),
+      );
 
       await _enqueue(
         table: SyncTables.legalCases,
         rowId: id,
         operation: SyncOperation.update.name,
         payload: <String, dynamic>{
-          'title': title,
-          'description': ?description,
+          'title': cleanTitle,
+          'description': ?cleanDescription,
         },
         at: now,
       );
@@ -478,15 +473,21 @@ class LocalDataSourceImpl implements LocalDataSource {
   }) async {
     final now = DateTime.now().toUtc();
     final id = _uuid.v4();
+    final cleanTitle = stripLegalTextSymbols(title);
+    final cleanDescription = stripLegalTextSymbolsFromStepDescription(
+      shortDescription,
+    );
 
     await db.transaction(() async {
-      await db.into(db.caseSteps).insert(
+      await db
+          .into(db.caseSteps)
+          .insert(
             CaseStepsCompanion.insert(
               id: id,
               caseId: caseId,
               stepNumber: stepNumber,
-              title: title,
-              shortDescription: shortDescription,
+              title: cleanTitle,
+              shortDescription: cleanDescription,
               updatedAt: now,
             ),
           );
@@ -499,8 +500,8 @@ class LocalDataSourceImpl implements LocalDataSource {
           'id': id,
           'case_id': caseId,
           'step_number': stepNumber,
-          'title': title,
-          'short_description': shortDescription,
+          'title': cleanTitle,
+          'short_description': cleanDescription,
         },
         at: now,
       );
@@ -517,19 +518,23 @@ class LocalDataSourceImpl implements LocalDataSource {
     String? shortDescription,
   }) async {
     final now = DateTime.now().toUtc();
+    final cleanTitle = title == null ? null : stripLegalTextSymbols(title);
+    final cleanDescription = shortDescription == null
+        ? null
+        : stripLegalTextSymbolsFromStepDescription(shortDescription);
 
     await db.transaction(() async {
       // Every argument is optional here because the roadmap editor renumbers
       // steps wholesale: a reorder touches step_number on many rows while
       // leaving title and short_description alone.
       await (db.update(db.caseSteps)..where((t) => t.id.equals(id))).write(
-            CaseStepsCompanion(
-              stepNumber: Value.absentIfNull(stepNumber),
-              title: Value.absentIfNull(title),
-              shortDescription: Value.absentIfNull(shortDescription),
-              updatedAt: Value(now),
-            ),
-          );
+        CaseStepsCompanion(
+          stepNumber: Value.absentIfNull(stepNumber),
+          title: Value.absentIfNull(cleanTitle),
+          shortDescription: Value.absentIfNull(cleanDescription),
+          updatedAt: Value(now),
+        ),
+      );
 
       await _enqueue(
         table: SyncTables.caseSteps,
@@ -537,8 +542,8 @@ class LocalDataSourceImpl implements LocalDataSource {
         operation: SyncOperation.update.name,
         payload: <String, dynamic>{
           'step_number': ?stepNumber,
-          'title': ?title,
-          'short_description': ?shortDescription,
+          'title': ?cleanTitle,
+          'short_description': ?cleanDescription,
         },
         at: now,
       );
@@ -551,11 +556,8 @@ class LocalDataSourceImpl implements LocalDataSource {
 
     await db.transaction(() async {
       await (db.update(db.caseSteps)..where((t) => t.id.equals(id))).write(
-            CaseStepsCompanion(
-              deletedAt: Value(now),
-              updatedAt: Value(now),
-            ),
-          );
+        CaseStepsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
 
       await _enqueue(
         table: SyncTables.caseSteps,
@@ -596,15 +598,11 @@ class LocalDataSourceImpl implements LocalDataSource {
 
   /// Marks every step belonging to [caseId] as deleted.
   Future<void> _softDeleteStepsFor(String caseId, DateTime at) async {
-    final steps = await (db.select(db.caseSteps)
-          ..where((t) => t.caseId.equals(caseId) & t.deletedAt.isNull()))
-        .get();
+    final steps = await (db.select(
+      db.caseSteps,
+    )..where((t) => t.caseId.equals(caseId) & t.deletedAt.isNull())).get();
     for (final step in steps) {
-      await _softDeleteOne(
-        table: SyncTables.caseSteps,
-        rowId: step.id,
-        at: at,
-      );
+      await _softDeleteOne(table: SyncTables.caseSteps, rowId: step.id, at: at);
     }
   }
 
@@ -617,33 +615,27 @@ class LocalDataSourceImpl implements LocalDataSource {
     // this is called from inside a transaction by every caller.
     switch (table) {
       case SyncTables.categories:
-        await (db.update(db.categories)..where((t) => t.id.equals(rowId))).write(
-              CategoriesCompanion(
-                deletedAt: Value(at),
-                updatedAt: Value(at),
-              ),
-            );
+        await (db.update(
+          db.categories,
+        )..where((t) => t.id.equals(rowId))).write(
+          CategoriesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        );
       case SyncTables.subcategories:
-        await (db.update(db.subcategories)..where((t) => t.id.equals(rowId))).write(
-              SubcategoriesCompanion(
-                deletedAt: Value(at),
-                updatedAt: Value(at),
-              ),
-            );
+        await (db.update(
+          db.subcategories,
+        )..where((t) => t.id.equals(rowId))).write(
+          SubcategoriesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        );
       case SyncTables.legalCases:
-        await (db.update(db.legalCases)..where((t) => t.id.equals(rowId))).write(
-              LegalCasesCompanion(
-                deletedAt: Value(at),
-                updatedAt: Value(at),
-              ),
-            );
+        await (db.update(
+          db.legalCases,
+        )..where((t) => t.id.equals(rowId))).write(
+          LegalCasesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        );
       case SyncTables.caseSteps:
         await (db.update(db.caseSteps)..where((t) => t.id.equals(rowId))).write(
-              CaseStepsCompanion(
-                deletedAt: Value(at),
-                updatedAt: Value(at),
-              ),
-            );
+          CaseStepsCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        );
       default:
         throw ArgumentError('Unknown table: $table');
     }
@@ -684,11 +676,13 @@ class LocalDataSourceImpl implements LocalDataSource {
       throw ArgumentError('Unknown column $column for table $table');
     }
 
-    final rows = await db.customSelect(
-      'SELECT id FROM $table WHERE $column = ?1 AND deleted_at IS NULL',
-      variables: [Variable.withString(parentId)],
-      readsFrom: {_readSourceFor(table)},
-    ).get();
+    final rows = await db
+        .customSelect(
+          'SELECT id FROM $table WHERE $column = ?1 AND deleted_at IS NULL',
+          variables: [Variable.withString(parentId)],
+          readsFrom: {_readSourceFor(table)},
+        )
+        .get();
     return rows.map((r) => r.read<String>('id')).toList();
   }
 
@@ -721,13 +715,13 @@ class LocalDataSourceImpl implements LocalDataSource {
     required Map<String, dynamic>? payload,
     required DateTime at,
   }) async {
-    await (db.delete(db.syncQueue)
-          ..where(
-            (t) => t.targetTable.equals(table) & t.rowId.equals(rowId),
-          ))
-        .go();
+    await (db.delete(
+      db.syncQueue,
+    )..where((t) => t.targetTable.equals(table) & t.rowId.equals(rowId))).go();
 
-    await db.into(db.syncQueue).insert(
+    await db
+        .into(db.syncQueue)
+        .insert(
           SyncQueueCompanion.insert(
             id: _uuid.v4(),
             targetTable: table,

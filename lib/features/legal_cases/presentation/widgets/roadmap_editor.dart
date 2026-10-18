@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/legal_text.dart';
+import 'legal_text_input_formatter.dart';
+
 class BranchKind {
   final String id;
   final String defaultTitle;
@@ -86,8 +89,8 @@ class StepInputData {
   final List<BranchInputData> branches = [];
 
   StepInputData({String? title, String? desc}) {
-    if (title != null) titleController.text = title;
-    if (desc != null) descController.text = desc;
+    if (title != null) titleController.text = stripLegalTextSymbols(title);
+    if (desc != null) descController.text = stripLegalTextSymbols(desc);
   }
 
   void addBranch({BranchInputData? branch}) {
@@ -133,12 +136,16 @@ class BranchInputData {
   String? nextStepTitle;
 
   BranchInputData({String? defaultTitle, this.outcome})
-    : titleController = TextEditingController(text: defaultTitle ?? '');
+    : titleController = TextEditingController(
+        text: stripLegalTextSymbols(defaultTitle ?? ''),
+      );
 
   Color get color => branchColorFor(outcome);
 
   void addSubStep([String text = '']) {
-    subStepControllers.add(TextEditingController(text: text));
+    subStepControllers.add(
+      TextEditingController(text: stripLegalTextSymbols(text)),
+    );
   }
 
   void removeSubStep(int index) {
@@ -188,7 +195,7 @@ BranchInputData cloneBranch(BranchInputData b) {
     defaultTitle: b.titleController.text,
     outcome: b.outcome,
   );
-  clone.descController.text = b.descController.text;
+  clone.descController.text = stripLegalTextSymbols(b.descController.text);
   clone.nextStepNumber = b.nextStepNumber;
   clone.nextStepTitle = b.nextStepTitle;
 
@@ -208,10 +215,10 @@ BranchInputData cloneBranch(BranchInputData b) {
 /// Convert one branch (and everything nested under it) to the JSON shape
 /// consumed by `StepBranch.fromJson`.
 Map<String, dynamic> branchToJson(BranchInputData b) {
-  final desc = b.descController.text.trim();
+  final desc = stripLegalTextSymbols(b.descController.text).trim();
 
   List<String> subSteps = b.subStepControllers
-      .map((c) => c.text.trim())
+      .map((c) => stripLegalTextSymbols(c.text).trim())
       .where((t) => t.isNotEmpty)
       .toList();
 
@@ -221,7 +228,7 @@ Map<String, dynamic> branchToJson(BranchInputData b) {
       .toList();
 
   return {
-    'title': b.titleController.text.trim(),
+    'title': stripLegalTextSymbols(b.titleController.text).trim(),
     'description': desc,
     'sub_steps': subSteps,
     if (b.outcome != null) 'outcome': b.outcome,
@@ -236,6 +243,7 @@ String encodeStepDescription({
   required List<BranchInputData> branches,
   int? stepNumber,
 }) {
+  description = stripLegalTextSymbols(description);
   final valid = branches
       .where((b) => b.titleController.text.trim().isNotEmpty)
       .map(branchToJson)
@@ -330,13 +338,13 @@ void remapBranchLinks(List<StepInputData> steps, Map<int, int> remap) {
 ({String description, List<BranchInputData> branches}) decodeStepDescription(
   String raw,
 ) {
-  var desc = raw;
+  var desc = stripLegalTextSymbols(raw);
   final branches = <BranchInputData>[];
 
   if (raw.startsWith('__BRANCHES_JSON__')) {
     try {
       final map = jsonDecode(raw.replaceFirst('__BRANCHES_JSON__', ''));
-      desc = (map['main_description'] ?? '').toString();
+      desc = stripLegalTextSymbols((map['main_description'] ?? '').toString());
       final list = map['branches'] as List<dynamic>?;
       if (list != null) {
         for (final raw in list) {
@@ -370,11 +378,13 @@ void remapBranchLinks(List<StepInputData> steps, Map<int, int> remap) {
 }
 
 BranchInputData _branchFromJson(Map<String, dynamic> json) {
-  final title = (json['title'] ?? '').toString();
+  final title = stripLegalTextSymbols((json['title'] ?? '').toString());
   final outcome = (json['outcome'] ?? inferOutcomeFromTitle(title))?.toString();
 
   final branch = BranchInputData(defaultTitle: title, outcome: outcome);
-  branch.descController.text = (json['description'] ?? '').toString();
+  branch.descController.text = stripLegalTextSymbols(
+    (json['description'] ?? '').toString(),
+  );
 
   final subs = json['sub_steps'] as List<dynamic>?;
   if (subs != null) {
@@ -708,6 +718,7 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
           TextField(
             controller: step.titleController,
             textAlign: TextAlign.right,
+            inputFormatters: [legalTextInputFormatter],
             decoration: const InputDecoration(
               labelText: 'عنوان الخطوة',
               hintText: 'مثال: مقابلة الموكل وتجهيز المستندات',
@@ -719,6 +730,7 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
           TextField(
             controller: step.descController,
             textAlign: TextAlign.right,
+            inputFormatters: [legalTextInputFormatter],
             maxLines: 2,
             decoration: const InputDecoration(
               labelText: 'تفاصيل الخطوة (اختياري)',
@@ -874,6 +886,7 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                 TextField(
                   controller: branch.titleController,
                   textAlign: TextAlign.right,
+                  inputFormatters: [legalTextInputFormatter],
                   style: const TextStyle(fontWeight: FontWeight.bold),
                   decoration: const InputDecoration(
                     labelText: 'عنوان الفرع',
@@ -915,6 +928,7 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                 TextField(
                   controller: branch.descController,
                   textAlign: TextAlign.right,
+                  inputFormatters: [legalTextInputFormatter],
                   maxLines: 2,
                   decoration: const InputDecoration(
                     labelText: 'وصف عام لهذا الفرع ونتيجته (اختياري)',
@@ -1024,6 +1038,7 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                       child: TextField(
                         controller: branch.subStepControllers[s],
                         textAlign: TextAlign.right,
+                        inputFormatters: [legalTextInputFormatter],
                         decoration: InputDecoration(
                           labelText: 'المحطة ${s + 1} في هذا المسار',
                           hintText: 'الإجراء الذي يلي المحطة السابقة مباشرة',

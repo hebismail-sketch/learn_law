@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../legal_text.dart';
 import 'app_database.dart';
 import 'connectivity_service.dart';
 import 'sync_types.dart';
@@ -118,6 +119,26 @@ class SyncManager {
     final payload = op.payload == null
         ? <String, dynamic>{}
         : jsonDecode(op.payload!) as Map<String, dynamic>;
+
+    if (op.targetTable == SyncTables.legalCases) {
+      if (payload['title'] is String) {
+        payload['title'] = stripLegalTextSymbols(payload['title'] as String);
+      }
+      if (payload['description'] is String) {
+        payload['description'] = stripLegalTextSymbols(
+          payload['description'] as String,
+        );
+      }
+    } else if (op.targetTable == SyncTables.caseSteps) {
+      if (payload['title'] is String) {
+        payload['title'] = stripLegalTextSymbols(payload['title'] as String);
+      }
+      if (payload['short_description'] is String) {
+        payload['short_description'] = stripLegalTextSymbolsFromStepDescription(
+          payload['short_description'] as String,
+        );
+      }
+    }
 
     switch (op.operation) {
       case 'insert':
@@ -318,8 +339,14 @@ class SyncManager {
               LegalCasesCompanion.insert(
                 id: id,
                 subcategoryId: (row['subcategory_id'] ?? '').toString(),
-                title: (row['title'] ?? row['name'] ?? '').toString(),
-                description: Value(row['description']?.toString()),
+                title: stripLegalTextSymbols(
+                  (row['title'] ?? row['name'] ?? '').toString(),
+                ),
+                description: Value(
+                  row['description'] == null
+                      ? null
+                      : stripLegalTextSymbols(row['description'].toString()),
+                ),
                 updatedAt: updatedAt,
                 deletedAt: Value(deletedAt),
               ),
@@ -332,8 +359,10 @@ class SyncManager {
                 id: id,
                 caseId: (row['case_id'] ?? '').toString(),
                 stepNumber: (row['step_number'] as num?)?.toInt() ?? 0,
-                title: (row['title'] ?? '').toString(),
-                shortDescription: (row['short_description'] ?? '').toString(),
+                title: stripLegalTextSymbols((row['title'] ?? '').toString()),
+                shortDescription: stripLegalTextSymbolsFromStepDescription(
+                  (row['short_description'] ?? '').toString(),
+                ),
                 updatedAt: updatedAt,
                 deletedAt: Value(deletedAt),
               ),

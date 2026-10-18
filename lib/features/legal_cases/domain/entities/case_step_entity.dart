@@ -1,3 +1,4 @@
+import '../../../../core/legal_text.dart';
 import 'step_branch.dart';
 
 class CaseStepEntity {
@@ -12,8 +13,9 @@ class CaseStepEntity {
     required this.id,
     required this.caseId,
     required this.stepNumber,
-    required this.title,
-    required this.shortDescription,
+    required String title,
+    required String shortDescription,
     this.branches = const [],
-  });
+  }) : title = stripLegalTextSymbols(title),
+       shortDescription = stripLegalTextSymbols(shortDescription);
 }

@@ -1,3 +1,5 @@
+import '../../../../core/legal_text.dart';
+
 class LegalCaseModel {
   final String id;
   final String subcategoryId;
@@ -7,9 +9,12 @@ class LegalCaseModel {
   LegalCaseModel({
     required this.id,
     required this.subcategoryId,
-    required this.name,
-    this.description,
-  });
+    required String name,
+    String? description,
+  }) : name = stripLegalTextSymbols(name),
+       description = description == null
+           ? null
+           : stripLegalTextSymbols(description);
 
   factory LegalCaseModel.fromJson(Map<String, dynamic> json) {
     return LegalCaseModel(

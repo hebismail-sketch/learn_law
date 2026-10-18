@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:learn_law/core/sync/app_database.dart';
@@ -64,5 +66,51 @@ void main() {
     await localDataSource.deleteSubcategory(id: subcategoryId);
 
     expect(await localDataSource.searchLegalCases('قضية'), isEmpty);
+  });
+
+  test('local case and step writes strip symbols before saving', () async {
+    final categoryId = await localDataSource.insertCategory(name: 'القضايا');
+    final subcategoryId = await localDataSource.insertSubcategory(
+      categoryId: categoryId,
+      name: 'القسم المدني',
+    );
+    final caseId = await localDataSource.insertLegalCase(
+      subcategoryId: subcategoryId,
+      title: '**دعوى # نفقة**',
+      description: 'وصف * للقضية',
+    );
+
+    final legalCase = (await localDataSource.getLegalCases(
+      subcategoryId,
+    )).single;
+    expect(legalCase.title, 'دعوى  نفقة');
+    expect(legalCase.description, 'وصف  للقضية');
+
+    await localDataSource.insertCaseStep(
+      caseId: caseId,
+      stepNumber: 1,
+      title: '* تقديم الطلب',
+      shortDescription:
+          '__BRANCHES_JSON__${jsonEncode({
+            'main_description': '**مراجعة # المستندات**',
+            'branches': [
+              {
+                'title': '* قبول الدعوى',
+                'description': '# تحديد الجلسة',
+                'sub_steps': ['* إخطار الخصم'],
+              },
+            ],
+          })}',
+    );
+
+    final step = (await localDataSource.getCaseSteps(caseId)).single;
+    expect(step.title, ' تقديم الطلب');
+    final data = jsonDecode(
+      step.shortDescription.substring('__BRANCHES_JSON__'.length),
+    );
+    expect(data['main_description'], 'مراجعة  المستندات');
+    expect(data['branches'][0]['title'], ' قبول الدعوى');
+    expect(data['branches'][0]['description'], ' تحديد الجلسة');
+    expect(data['branches'][0]['sub_steps'], [' إخطار الخصم']);
   });
 }

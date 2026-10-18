@@ -1,3 +1,5 @@
+import '../../../../core/legal_text.dart';
+
 class LegalCaseEntity {
   final String id;
   final String subcategoryId;
@@ -7,7 +9,10 @@ class LegalCaseEntity {
   LegalCaseEntity({
     required this.id,
     required this.subcategoryId,
-    required this.name,
-    this.description,
-  });
+    required String name,
+    String? description,
+  }) : name = stripLegalTextSymbols(name),
+       description = description == null
+           ? null
+           : stripLegalTextSymbols(description);
 }

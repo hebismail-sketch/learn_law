@@ -162,85 +162,87 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   onSyncComplete: () =>
                       context.read<LegalCubit>().refreshCategories(),
                   child: BlocBuilder<LegalCubit, LegalState>(
-                  builder: (context, state) {
-                    if (state is LegalLoading) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF38BDF8),
-                        ),
-                      );
-                    } else if (state is CategoriesLoaded) {
-                      final categories = state.categories;
-                      if (categories.isEmpty) {
+                    builder: (context, state) {
+                      if (state is LegalLoading) {
                         return Center(
-                          child: Text(
-                            'لا توجد تصنيفات مضافة حالياً',
-                            style: TextStyle(color: AppColors.textSecondary),
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF38BDF8),
                           ),
                         );
-                      }
-                      return LayoutBuilder(
-                        builder: (context, constraints) =>
-                            SingleChildScrollView(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: constraints.maxHeight,
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    20,
-                                    18,
-                                    20,
-                                    66,
+                      } else if (state is CategoriesLoaded) {
+                        final categories = state.categories;
+                        if (categories.isEmpty) {
+                          return Center(
+                            child: Text(
+                              'لا توجد تصنيفات مضافة حالياً',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                          );
+                        }
+                        return LayoutBuilder(
+                          builder: (context, constraints) =>
+                              SingleChildScrollView(
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: constraints.maxHeight,
                                   ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      for (
-                                        var index = 0;
-                                        index < categories.length;
-                                        index++
-                                      )
-                                        RoadmapListTile(
-                                          title: categories[index].name,
-                                          index: index,
-                                          icon: Icons.folder_open_rounded,
-                                          onTap: () {
-                                            final category = categories[index];
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => BlocProvider(
-                                                  create: (_) =>
-                                                      sl<LegalCubit>()
-                                                        ..fetchSubcategories(
-                                                          category.id,
-                                                        ),
-                                                  child: SubcategoriesScreen(
-                                                    category: category,
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      18,
+                                      20,
+                                      66,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        for (
+                                          var index = 0;
+                                          index < categories.length;
+                                          index++
+                                        )
+                                          RoadmapListTile(
+                                            title: categories[index].name,
+                                            index: index,
+                                            icon: Icons.folder_open_rounded,
+                                            onTap: () {
+                                              final category =
+                                                  categories[index];
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => BlocProvider(
+                                                    create: (_) =>
+                                                        sl<LegalCubit>()
+                                                          ..fetchSubcategories(
+                                                            category.id,
+                                                          ),
+                                                    child: SubcategoriesScreen(
+                                                      category: category,
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                    ],
+                                              );
+                                            },
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                      );
-                    } else if (state is LegalError) {
-                      return Center(
-                        child: Text(
-                          state.message,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
+                        );
+                      } else if (state is LegalError) {
+                        return Center(
+                          child: Text(
+                            state.message,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                 ),
               ),
             ],
