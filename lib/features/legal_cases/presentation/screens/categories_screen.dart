@@ -10,10 +10,15 @@ import '../../../../core/sync/sync_refresh_listener.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
 import '../../domain/entities/category_entity.dart';
+import '../../domain/entities/legal_case_entity.dart';
 import 'admin_hub_screen.dart';
 import 'admin_login_screen.dart';
+import 'case_roadmap_screen.dart';
 import 'global_search_screen.dart';
 import 'subcategories_screen.dart';
+import '../state/legal_case_favorites.dart';
+import '../widgets/legal_case_favorite_button.dart';
+import '../widgets/roadmap_list_tile.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -111,6 +116,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
+  void _openFavoriteCase(LegalCaseEntity legalCase) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider(
+          create: (_) => sl<LegalCubit>(),
+          child: CaseRoadmapScreen(legalCase: legalCase),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return rebuildWithAppTheme(
@@ -151,7 +168,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         );
                       }
                       if (state is CategoriesLoaded) {
-                        return _buildContent(state.categories);
+                        return AnimatedBuilder(
+                          animation: LegalCaseFavorites.instance,
+                          builder: (context, _) =>
+                              _buildContent(state.categories),
+                        );
                       }
                       return const SizedBox.shrink();
                     },
@@ -175,6 +196,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         : categories
               .where((category) => _favoriteCategoryIds.contains(category.id))
               .toList();
+    final favoriteCases = _selectedTab == 1
+        ? LegalCaseFavorites.instance.cases
+        : const <LegalCaseEntity>[];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -196,9 +220,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     const _WelcomeBanner(),
                     const SizedBox(height: 18),
                   ],
-                  if (visibleCategories.isEmpty)
+                  if (visibleCategories.isEmpty && favoriteCases.isEmpty)
                     _EmptyCategories(isFavorites: _selectedTab == 1)
-                  else
+                  else ...[
                     for (
                       var index = 0;
                       index < visibleCategories.length;
@@ -220,6 +244,44 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       if (index != visibleCategories.length - 1)
                         const SizedBox(height: 12),
                     ],
+                    if (favoriteCases.isNotEmpty) ...[
+                      if (visibleCategories.isNotEmpty)
+                        const SizedBox(height: 18),
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          end: 8,
+                          bottom: 12,
+                        ),
+                        child: Text(
+                          'الدعاوى المفضلة',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      for (var index = 0; index < favoriteCases.length; index++)
+                        RoadmapListTile(
+                          key: ValueKey(
+                            'favorite-case-${favoriteCases[index].id}',
+                          ),
+                          title: favoriteCases[index].name,
+                          subtitle: favoriteCases[index].description,
+                          index: index,
+                          icon: Icons.gavel_rounded,
+                          onTap: () => _openFavoriteCase(favoriteCases[index]),
+                          actions: [
+                            LegalCaseFavoriteButton(
+                              caseId: favoriteCases[index].id,
+                              onPressed: () => LegalCaseFavorites.instance
+                                  .toggle(favoriteCases[index]),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ],
                 ],
               ),
             ),
@@ -1030,7 +1092,7 @@ class _EmptyCategories extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             isFavorites
-                ? 'لا توجد تصنيفات في المفضلة بعد'
+                ? 'لا توجد عناصر في المفضلة بعد'
                 : 'لا توجد تصنيفات مضافة حالياً',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -1041,7 +1103,7 @@ class _EmptyCategories extends StatelessWidget {
           if (isFavorites) ...[
             const SizedBox(height: 8),
             Text(
-              'اضغط مطولاً على أي تصنيف لإضافته إلى هنا',
+              'أضف التصنيفات أو الدعاوى إلى المفضلة لتظهر هنا',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),

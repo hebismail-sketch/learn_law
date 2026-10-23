@@ -9,7 +9,9 @@ import '../../domain/entities/subcategory_entity.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
+import '../state/legal_case_favorites.dart';
 import '../widgets/legal_browse_header.dart';
+import '../widgets/legal_case_favorite_button.dart';
 import '../widgets/roadmap_list_tile.dart';
 import '../widgets/starry_background.dart';
 import 'case_roadmap_screen.dart';
@@ -155,46 +157,48 @@ class LegalCasesScreen extends StatelessWidget {
                               subtitle: legalCase.description,
                               index: index,
                               icon: Icons.gavel_rounded,
-                              actions: isAdminUser
-                                  ? [
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          color: Color(0xFFF87171),
-                                        ),
-                                        tooltip: 'حذف القضية',
-                                        onPressed: () =>
-                                            _deleteCase(context, legalCase),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit_note_rounded,
-                                          color: Color(0xFF7DD3FC),
-                                        ),
-                                        tooltip: 'تعديل القضية وخطواتها',
-                                        onPressed: () async {
-                                          final updated =
-                                              await Navigator.push<bool>(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      AdminEditCaseScreen(
-                                                        legalCase: legalCase,
-                                                      ),
-                                                ),
-                                              );
-                                          if (updated == true &&
-                                              context.mounted) {
-                                            context
-                                                .read<LegalCubit>()
-                                                .fetchLegalCases(
-                                                  subcategory.id,
-                                                );
-                                          }
-                                        },
-                                      ),
-                                    ]
-                                  : const [],
+                              actions: [
+                                LegalCaseFavoriteButton(
+                                  caseId: legalCase.id,
+                                  onPressed: () => LegalCaseFavorites.instance
+                                      .toggle(legalCase),
+                                ),
+                                if (isAdminUser) ...[
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: Color(0xFFF87171),
+                                    ),
+                                    tooltip: 'حذف القضية',
+                                    onPressed: () =>
+                                        _deleteCase(context, legalCase),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit_note_rounded,
+                                      color: Color(0xFF7DD3FC),
+                                    ),
+                                    tooltip: 'تعديل القضية وخطواتها',
+                                    onPressed: () async {
+                                      final updated =
+                                          await Navigator.push<bool>(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  AdminEditCaseScreen(
+                                                    legalCase: legalCase,
+                                                  ),
+                                            ),
+                                          );
+                                      if (updated == true && context.mounted) {
+                                        context
+                                            .read<LegalCubit>()
+                                            .fetchLegalCases(subcategory.id);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ],
                               onTap: () {
                                 Navigator.push(
                                   context,

@@ -16,6 +16,7 @@ import 'package:learn_law/features/legal_cases/domain/usecases/get_legal_cases_u
 import 'package:learn_law/features/legal_cases/domain/usecases/get_subcategories_usecase.dart';
 import 'package:learn_law/features/legal_cases/presentation/bloc/legal_cubit.dart';
 import 'package:learn_law/features/legal_cases/presentation/screens/categories_screen.dart';
+import 'package:learn_law/features/legal_cases/presentation/state/legal_case_favorites.dart';
 
 void main() {
   setUp(() {
@@ -90,6 +91,46 @@ void main() {
     expect(AppColors.background, AppColors.lightBackground);
     expect(find.byIcon(Icons.dark_mode_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows and removes favorited legal cases from favorites', (
+    tester,
+  ) async {
+    final legalCase = LegalCaseEntity(
+      id: 'case-1',
+      subcategoryId: 'family',
+      name: 'دعوى نفقة',
+      description: 'إجراءات دعوى النفقة',
+    );
+    LegalCaseFavorites.instance.toggle(legalCase);
+    addTearDown(() {
+      if (LegalCaseFavorites.instance.contains(legalCase.id)) {
+        LegalCaseFavorites.instance.toggle(legalCase);
+      }
+    });
+
+    final cubit = _createCubit();
+    addTearDown(cubit.close);
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: cubit,
+        child: const MaterialApp(home: CategoriesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('المفضلة'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('favorite-case-case-1')), findsOneWidget);
+    expect(find.text('دعوى نفقة'), findsOneWidget);
+    expect(find.byTooltip('إزالة من المفضلة'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('إزالة من المفضلة'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('favorite-case-case-1')), findsNothing);
+    expect(find.text('لا توجد عناصر في المفضلة بعد'), findsOneWidget);
   });
 }
 
