@@ -35,8 +35,10 @@ class _CaseRoadmapScreenState extends State<CaseRoadmapScreen> {
   }
 
   Future<void> _loadCaseSteps() async {
+    if (!mounted) return;
     final cubit = context.read<LegalCubit>();
     await cubit.fetchCaseSteps(widget.legalCase.id);
+    if (!mounted) return;
 
     try {
       await sl<SyncManager>().refreshCaseSteps(widget.legalCase.id);
@@ -54,10 +56,9 @@ class _CaseRoadmapScreenState extends State<CaseRoadmapScreen> {
       }
     }
 
-    if (mounted) {
-      setState(() => _isRefreshingRemoteSteps = false);
-      await cubit.fetchCaseSteps(widget.legalCase.id);
-    }
+    if (!mounted) return;
+    setState(() => _isRefreshingRemoteSteps = false);
+    await cubit.fetchCaseSteps(widget.legalCase.id);
   }
 
   @override
@@ -810,7 +811,7 @@ class _BranchForkConnector extends StatelessWidget {
 // MERGE CONNECT// ============================================================================
 
 class _BranchMergeConnector extends StatelessWidget {
-  final int branchCount;                                                           
+  final int branchCount;
   final double laneWidth;
   final double gap;
   final Color color;

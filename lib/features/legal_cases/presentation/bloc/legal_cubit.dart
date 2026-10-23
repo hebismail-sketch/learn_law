@@ -22,8 +22,10 @@ class LegalCubit extends Cubit<LegalState> {
     emit(LegalLoading());
     try {
       final categories = await getCategoriesUseCase();
+      if (isClosed) return;
       emit(CategoriesLoaded(categories));
     } catch (e) {
+      if (isClosed) return;
       emit(LegalError(e.toString()));
     }
   }
@@ -32,8 +34,10 @@ class LegalCubit extends Cubit<LegalState> {
     emit(LegalLoading());
     try {
       final subcategories = await getSubcategoriesUseCase(categoryId);
+      if (isClosed) return;
       emit(SubcategoriesLoaded(subcategories));
     } catch (e) {
+      if (isClosed) return;
       emit(LegalError(e.toString()));
     }
   }
@@ -42,8 +46,10 @@ class LegalCubit extends Cubit<LegalState> {
     emit(LegalLoading());
     try {
       final cases = await getLegalCasesUseCase(subcategoryId);
+      if (isClosed) return;
       emit(LegalCasesLoaded(cases));
     } catch (e) {
+      if (isClosed) return;
       emit(LegalError(e.toString()));
     }
   }
@@ -52,25 +58,35 @@ class LegalCubit extends Cubit<LegalState> {
     emit(LegalLoading());
     try {
       final steps = await getCaseStepsUseCase(caseId);
+      if (isClosed) return;
       emit(CaseStepsLoaded(steps));
     } catch (e) {
+      if (isClosed) return;
       emit(LegalError(e.toString()));
     }
   }
 
   Future<void> refreshCategories() async {
-    emit(CategoriesLoaded(await getCategoriesUseCase()));
+    final categories = await getCategoriesUseCase();
+    if (isClosed) return;
+    emit(CategoriesLoaded(categories));
   }
 
   Future<void> refreshSubcategories(String categoryId) async {
-    emit(SubcategoriesLoaded(await getSubcategoriesUseCase(categoryId)));
+    final subcategories = await getSubcategoriesUseCase(categoryId);
+    if (isClosed) return;
+    emit(SubcategoriesLoaded(subcategories));
   }
 
   Future<void> refreshLegalCases(String subcategoryId) async {
-    emit(LegalCasesLoaded(await getLegalCasesUseCase(subcategoryId)));
+    final cases = await getLegalCasesUseCase(subcategoryId);
+    if (isClosed) return;
+    emit(LegalCasesLoaded(cases));
   }
 
   Future<void> refreshCaseSteps(String caseId) async {
-    emit(CaseStepsLoaded(await getCaseStepsUseCase(caseId)));
+    final steps = await getCaseStepsUseCase(caseId);
+    if (isClosed) return;
+    emit(CaseStepsLoaded(steps));
   }
 }
