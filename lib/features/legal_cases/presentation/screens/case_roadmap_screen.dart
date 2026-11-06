@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/ads/category_access.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/sync_manager.dart';
@@ -18,8 +19,15 @@ import '../widgets/step_palette.dart';
 
 class CaseRoadmapScreen extends StatefulWidget {
   final LegalCaseEntity legalCase;
+  final String categoryId;
+  final String categoryName;
 
-  const CaseRoadmapScreen({super.key, required this.legalCase});
+  const CaseRoadmapScreen({
+    super.key,
+    required this.legalCase,
+    required this.categoryId,
+    required this.categoryName,
+  });
 
   @override
   State<CaseRoadmapScreen> createState() => _CaseRoadmapScreenState();
@@ -36,6 +44,16 @@ class _CaseRoadmapScreenState extends State<CaseRoadmapScreen> {
 
   Future<void> _loadCaseSteps() async {
     if (!mounted) return;
+    final canOpen = await CategoryAccess.requestAccess(
+      context,
+      categoryId: widget.categoryId,
+      categoryName: widget.categoryName,
+    );
+    if (!canOpen || !mounted) {
+      if (mounted) Navigator.of(context).maybePop();
+      return;
+    }
+
     final cubit = context.read<LegalCubit>();
     await cubit.fetchCaseSteps(widget.legalCase.id);
     if (!mounted) return;
@@ -156,23 +174,23 @@ class _CaseRoadmapScreenState extends State<CaseRoadmapScreen> {
                       );
                     }
 
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 24,
-                      ),
-                      child: Column(
-                        children: [
-                          _buildHeaderBadge(steps.length),
-                          const SizedBox(height: 32),
-                          _RoadmapGraph(
+                    return CustomScrollView(
+                      slivers: [
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildHeaderBadge(steps.length),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: _RoadmapGraph(
                             caseName: widget.legalCase.name,
-                            caseId: widget.legalCase.id,
                             steps: steps,
                           ),
-                          const SizedBox(height: 50),
-                        ],
-                      ),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 50)),
+                      ],
                     );
                   }
 
@@ -318,14 +336,9 @@ class _DotGridPainter extends CustomPainter {
 
 class _RoadmapGraph extends StatelessWidget {
   final String caseName;
-  final String caseId;
   final List<CaseStepEntity> steps;
 
-  const _RoadmapGraph({
-    required this.caseName,
-    required this.caseId,
-    required this.steps,
-  });
+  const _RoadmapGraph({required this.caseName, required this.steps});
 
   void _openStep(BuildContext context, int initialStepIndex) {
     Navigator.push(
@@ -343,30 +356,25 @@ class _RoadmapGraph extends StatelessWidget {
   void _openBranch(BuildContext context, StepBranch branch) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => BranchDetailScreen(caseName: caseName, branch: branch),
-      ),
+      MaterialPageRoute(builder: (_) => BranchDetailScreen(branch: branch)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (int index = 0; index < steps.length; index++) ...[
-          _MainStepNode(
-            step: steps[index],
-            onTap: () => _openStep(context, index),
-          ),
-
-          // فروع الخطوة تظهر مباشرة تحتها (وليس بينها وبين الخطوة التالية)
-          // حتى تظهر فروع آخر خطوة أيضاً.
-          _StepConnection(
-            step: steps[index],
-            onBranchTap: (branch) => _openBranch(context, branch),
-          ),
-        ],
-      ],
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final step = steps[index];
+        return Column(
+          children: [
+            _MainStepNode(step: step, onTap: () => _openStep(context, index)),
+            _StepConnection(
+              step: step,
+              onBranchTap: (branch) => _openBranch(context, branch),
+            ),
+          ],
+        );
+      }, childCount: steps.length),
     );
   }
 }

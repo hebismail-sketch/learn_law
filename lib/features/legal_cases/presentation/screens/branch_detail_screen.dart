@@ -1,18 +1,32 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_theme.dart';
 import '../../domain/entities/step_branch.dart';
 import 'step_detail_screen.dart';
 
-class BranchDetailScreen extends StatelessWidget {
-  final String caseName;
+class BranchDetailScreen extends StatefulWidget {
   final StepBranch branch;
 
-  const BranchDetailScreen({
-    super.key,
-    required this.caseName,
-    required this.branch,
-  });
+  const BranchDetailScreen({super.key, required this.branch});
+
+  @override
+  State<BranchDetailScreen> createState() => _BranchDetailScreenState();
+}
+
+class _BranchDetailScreenState extends State<BranchDetailScreen> {
+  late final List<StepBranch> _branchHistory = [widget.branch];
+
+  StepBranch get _branch => _branchHistory.last;
+
+  void _openBranch(StepBranch branch) {
+    setState(() => _branchHistory.add(branch));
+  }
+
+  void _handlePop(bool didPop) {
+    if (didPop || _branchHistory.length == 1) return;
+    setState(() => _branchHistory.removeLast());
+  }
 
   /// The branch's own colour, used for the header and every accent on the page
   /// so the outcome stays obvious at a glance.
@@ -20,7 +34,7 @@ class BranchDetailScreen extends StatelessWidget {
   /// The stored `outcome` is preferred over matching on the title, because a
   /// title can be renamed by an admin while the outcome stays the same.
   Color get _accentColor {
-    switch (branch.outcome) {
+    switch (_branch.outcome) {
       case 'acceptance':
         return const Color(0xFF16A34A);
       case 'rejection':
@@ -29,163 +43,166 @@ class BranchDetailScreen extends StatelessWidget {
         return const Color(0xFFD97706);
     }
     // Fall back to the title for branches written before `outcome` was stored.
-    return LegalTheme.branchColor(branch.title);
+    return LegalTheme.branchColor(_branch.title);
   }
 
   @override
   Widget build(BuildContext context) {
+    final branch = _branch;
     return rebuildWithAppTheme(
       (context) => Directionality(
         textDirection: TextDirection.rtl,
-        child: Scaffold(
-          backgroundColor: LegalTheme.background,
-          appBar: AppBar(
+        child: PopScope(
+          canPop: _branchHistory.length == 1,
+          onPopInvokedWithResult: (didPop, _) => _handlePop(didPop),
+          child: Scaffold(
             backgroundColor: LegalTheme.background,
-            surfaceTintColor: Colors.transparent,
-            foregroundColor: LegalTheme.textPrimary,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            centerTitle: true,
-            title: Text(
-              'تفاصيل المسار',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
-                color: LegalTheme.textPrimary,
-              ),
-            ),
-            actions: const [ThemeToggleButton()],
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _header(),
-                const SizedBox(height: 13),
-                _sectionHeader(
-                  title: 'الإجراءات القانونية',
-                  icon: Icons.forum_rounded,
-                  count: branch.subSteps.length,
-                  key: const ValueKey('branch-procedures-heading'),
+            appBar: AppBar(
+              backgroundColor: LegalTheme.background,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: LegalTheme.textPrimary,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              centerTitle: true,
+              title: Text(
+                'تفاصيل المسار',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                  color: LegalTheme.textPrimary,
                 ),
-                const SizedBox(height: 16),
-                if (branch.subSteps.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      'لا توجد خطوات مسجلة لهذا المسار.',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        height: 1.8,
-                        color: LegalTheme.textMuted,
-                      ),
-                    ),
-                  )
-                else
-                  ...branch.subSteps.asMap().entries.map(
-                    (entry) => _BranchProcedureTile(
-                      index: entry.key + 1,
-                      text: entry.value,
-                      accent: _accentColor,
-                    ),
-                  ),
-
-                if (branch.branches.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+              ),
+              actions: const [ThemeToggleButton()],
+            ),
+            bottomNavigationBar: const SafeArea(
+              top: false,
+              child: AdMobBanner(),
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _header(),
+                  const SizedBox(height: 13),
                   _sectionHeader(
-                    title: 'مسارات فرعية',
-                    icon: Icons.alt_route_rounded,
-                    count: branch.branches.length,
-                    countLabel: 'مسار',
-                    key: const ValueKey('nested-branches-heading'),
+                    title: 'الإجراءات القانونية',
+                    icon: Icons.forum_rounded,
+                    count: branch.subSteps.length,
+                    key: const ValueKey('branch-procedures-heading'),
                   ),
-                  const SizedBox(height: 12),
-                  ...branch.branches.asMap().entries.map((entry) {
-                    final child = entry.value;
-                    final childAccent = _branchAccent(child);
-                    return Container(
-                      key: ValueKey('child-branch-${entry.key}'),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: LegalTheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: childAccent.withValues(alpha: 0.24),
+                  const SizedBox(height: 16),
+                  if (branch.subSteps.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        'لا توجد خطوات مسجلة لهذا المسار.',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          height: 1.8,
+                          color: LegalTheme.textMuted,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: AppThemeController.isLight.value
-                                  ? 0.035
-                                  : 0.12,
-                            ),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
+                    )
+                  else
+                    ...branch.subSteps.asMap().entries.map(
+                      (entry) => _BranchProcedureTile(
+                        index: entry.key + 1,
+                        text: entry.value,
+                        accent: _accentColor,
+                      ),
+                    ),
+
+                  if (branch.branches.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    _sectionHeader(
+                      title: 'مسارات فرعية',
+                      icon: Icons.alt_route_rounded,
+                      count: branch.branches.length,
+                      countLabel: 'مسار',
+                      key: const ValueKey('nested-branches-heading'),
+                    ),
+                    const SizedBox(height: 12),
+                    ...branch.branches.asMap().entries.map((entry) {
+                      final child = entry.value;
+                      final childAccent = _branchAccent(child);
+                      return Container(
+                        key: ValueKey('child-branch-${entry.key}'),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: LegalTheme.surface,
                           borderRadius: BorderRadius.circular(16),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => BranchDetailScreen(
-                                caseName: caseName,
-                                branch: child,
+                          border: Border.all(
+                            color: childAccent.withValues(alpha: 0.24),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: AppThemeController.isLight.value
+                                    ? 0.035
+                                    : 0.12,
+                              ),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _openBranch(child),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.chevron_left_rounded,
+                                    color: childAccent,
+                                    size: 24,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      child.title,
+                                      textAlign: TextAlign.right,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14.5,
+                                        color: LegalTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: childAccent.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      borderRadius: BorderRadius.circular(13),
+                                    ),
+                                    child: Icon(
+                                      Icons.alt_route_rounded,
+                                      color: childAccent,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.chevron_left_rounded,
-                                  color: childAccent,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    child.title,
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14.5,
-                                      color: LegalTheme.textPrimary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    color: childAccent.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(13),
-                                  ),
-                                  child: Icon(
-                                    Icons.alt_route_rounded,
-                                    color: childAccent,
-                                    size: 20,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -241,7 +258,7 @@ class BranchDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  branch.title,
+                  _branch.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -331,14 +348,14 @@ class BranchDetailScreen extends StatelessWidget {
     );
   }
 
-  String get _outcomeLabel => switch (branch.outcome) {
+  String get _outcomeLabel => switch (_branch.outcome) {
     'acceptance' => 'مسار قبول',
     'rejection' => 'مسار رفض',
     'appeal' => 'مسار استئناف',
     _ => 'مسار قانوني',
   };
 
-  IconData get _outcomeIcon => switch (branch.outcome) {
+  IconData get _outcomeIcon => switch (_branch.outcome) {
     'acceptance' => Icons.check_rounded,
     'rejection' => Icons.close_rounded,
     'appeal' => Icons.gavel_rounded,

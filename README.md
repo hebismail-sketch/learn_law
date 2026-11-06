@@ -299,7 +299,24 @@ On first launch the app opens with the local database empty and starts a backgro
 categories appear once the pull finishes (or immediately, if the device is offline and
 content was already synced before).
 
-### 7. (Optional) Regenerate launcher icons
+### 7. AdMob testing and release setup
+
+The Android app currently uses Google's official test app ID and test ad unit IDs
+in `android/app/src/main/AndroidManifest.xml` and
+`lib/core/ads/ad_mob_service.dart`. Keep these test IDs while developing; before
+releasing, replace them with the app ID and ad unit IDs from your AdMob account.
+Complete the AdMob payment profile before expecting live ads to serve.
+
+The app-open ad is shown only during a cold start and the startup screen waits up
+to five seconds for it before continuing. A banner is shown at the bottom of the
+step and branch detail screens. The personal-status category stays free. Other
+categories can be opened by choosing to watch a Rewarded ad; AdMob must confirm
+the reward before that category is unlocked for 30 days. Declining or closing
+the ad does not block the free category. Unlock expiry is stored locally on the
+device and is not restored after app data is cleared or the app is reinstalled;
+cross-device restoration would require user accounts and server-side entitlements.
+
+### 8. (Optional) Regenerate launcher icons
 
 After replacing `assets/images/app_icon.png` or `app_icon_contained.png`:
 
@@ -307,7 +324,7 @@ After replacing `assets/images/app_icon.png` or `app_icon_contained.png`:
 dart run flutter_launcher_icons
 ```
 
-### 8. Useful commands
+### 9. Useful commands
 
 | Command | Purpose |
 |---|---|
@@ -318,7 +335,7 @@ dart run flutter_launcher_icons
 | `flutter build apk --release` | Build a release Android APK |
 | `flutter build web --release` | Build a release web bundle |
 
-### 9. Project structure
+### 10. Project structure
 
 ```
 lib/

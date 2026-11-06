@@ -50,6 +50,8 @@ void main() {
     expect(results, hasLength(1));
     expect(results.single.title, 'قضية موجودة');
     expect(results.single.subcategoryName, 'القسم المدني');
+    expect(results.single.categoryId, categoryId);
+    expect(results.single.categoryName, 'القضايا');
   });
 
   test('search excludes cases in locally deleted folders', () async {

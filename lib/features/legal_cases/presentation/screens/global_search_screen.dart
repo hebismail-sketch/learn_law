@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
@@ -280,12 +282,16 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
               ),
               onTap: () {
                 // Open case roadmap directly from search result
-                Navigator.push(
+                AdMobService.pushWithInterstitial(
                   context,
                   MaterialPageRoute(
                     builder: (_) => BlocProvider(
                       create: (_) => sl<LegalCubit>(),
-                      child: CaseRoadmapScreen(legalCase: legalCaseEntity),
+                      child: CaseRoadmapScreen(
+                        legalCase: legalCaseEntity,
+                        categoryId: item.categoryId,
+                        categoryName: item.categoryName,
+                      ),
                     ),
                   ),
                 );

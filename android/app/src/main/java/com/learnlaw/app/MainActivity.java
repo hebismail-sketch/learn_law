@@ -1,4 +1,4 @@
-package com.example.learn_law;
+package com.learnlaw.app;
 
 import io.flutter.embedding.android.FlutterActivity;
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/ads/ad_mob_service.dart';
 import 'core/app_theme.dart';
 import 'core/injection_container.dart';
 import 'core/sync/sync_manager.dart';
@@ -22,6 +23,7 @@ void main() async {
 
   final syncManager = sl<SyncManager>();
   syncManager.listenToConnectivity();
+  unawaited(AdMobService.initialize());
   runApp(const MyApp());
 
   unawaited(
@@ -44,9 +46,11 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'الدليل القانوني',
         theme: AppColors.theme,
-        home: BlocProvider(
-          create: (_) => sl<LegalCubit>(),
-          child: const CategoriesScreen(),
+        home: AppOpenAdStartupGate(
+          child: BlocProvider(
+            create: (_) => sl<LegalCubit>(),
+            child: const CategoriesScreen(),
+          ),
         ),
       ),
     );

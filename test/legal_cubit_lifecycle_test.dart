@@ -76,6 +76,8 @@ void main() {
                         subcategoryId: 'category-1',
                         name: 'قضية تجريبية',
                       ),
+                      categoryId: 'family',
+                      categoryName: 'دعوى الأحوال الشخصية',
                     ),
                   ),
                 ),

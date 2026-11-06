@@ -11,6 +11,8 @@ class LocalLegalCaseSearchResult {
   final String id;
   final String subcategoryId;
   final String subcategoryName;
+  final String categoryId;
+  final String categoryName;
   final String title;
   final String? description;
 
@@ -18,6 +20,8 @@ class LocalLegalCaseSearchResult {
     required this.id,
     required this.subcategoryId,
     required this.subcategoryName,
+    required this.categoryId,
+    required this.categoryName,
     required this.title,
     required this.description,
   });
@@ -331,6 +335,9 @@ class LocalDataSourceImpl implements LocalDataSource {
             .get();
     final activeCategories = await getCategories();
     final activeCategoryIds = activeCategories.map((row) => row.id).toSet();
+    final categoriesById = {
+      for (final category in activeCategories) category.id: category,
+    };
     final activeSubcategories = await db.select(db.subcategories).get();
     final subcategoriesById = {
       for (final subcategory in activeSubcategories)
@@ -343,6 +350,8 @@ class LocalDataSourceImpl implements LocalDataSource {
     for (final row in caseRows) {
       final subcategory = subcategoriesById[row.subcategoryId];
       if (subcategory == null) continue;
+      final category = categoriesById[subcategory.categoryId];
+      if (category == null) continue;
 
       final normalizedTitle = row.title.trim().toLowerCase();
       final caseKey = '${row.subcategoryId}\u0000$normalizedTitle';
@@ -352,6 +361,8 @@ class LocalDataSourceImpl implements LocalDataSource {
           id: row.id,
           subcategoryId: row.subcategoryId,
           subcategoryName: subcategory.name,
+          categoryId: category.id,
+          categoryName: category.name,
           title: row.title,
           description: row.description,
         ),

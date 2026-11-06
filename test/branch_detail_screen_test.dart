@@ -16,7 +16,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: BranchDetailScreen(caseName: 'قضية تجريبية', branch: branch),
+        home: BranchDetailScreen(branch: branch),
       ),
     );
 
@@ -51,7 +51,9 @@ void main() {
     );
   });
 
-  testWidgets('opens a nested branch from the branch list', (tester) async {
+  testWidgets('opens nested branches without adding navigation routes', (
+    tester,
+  ) async {
     final branch = StepBranch(
       title: 'المسار الرئيسي',
       description: '',
@@ -66,14 +68,42 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: BranchDetailScreen(caseName: 'قضية تجريبية', branch: branch),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => BranchDetailScreen(branch: branch),
+                ),
+              ),
+              child: const Text('فتح المسار'),
+            ),
+          ),
+        ),
       ),
     );
+
+    await tester.tap(find.text('فتح المسار'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('المسار الفرعي'));
     await tester.pumpAndSettle();
 
     expect(find.text('تفاصيل المسار الفرعي.'), findsNothing);
     expect(find.text('مسار استئناف'), findsOneWidget);
+    expect(find.byType(BranchDetailScreen), findsOneWidget);
+    expect(
+      Navigator.of(tester.element(find.byType(BranchDetailScreen))).canPop(),
+      isTrue,
+    );
+
+    await Navigator.of(
+      tester.element(find.byType(BranchDetailScreen)),
+    ).maybePop();
+    await tester.pumpAndSettle();
+
+    expect(find.text('المسار الرئيسي'), findsOneWidget);
+    expect(find.text('مسار استئناف'), findsNothing);
   });
 }

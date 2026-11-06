@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/sync_refresh_listener.dart';
@@ -73,7 +74,7 @@ class SubcategoriesScreen extends StatelessWidget {
                             index: index,
                             maxWidth: 620,
                             onTap: () async {
-                              await Navigator.push(
+                              await AdMobService.pushWithInterstitial(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => BlocProvider(
@@ -82,6 +83,7 @@ class SubcategoriesScreen extends StatelessWidget {
                                           ..fetchLegalCases(subcategory.id),
                                     child: LegalCasesScreen(
                                       subcategory: subcategory,
+                                      categoryName: category.name,
                                     ),
                                   ),
                                 ),

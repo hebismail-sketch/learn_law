@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
@@ -19,8 +20,13 @@ import 'admin_edit_case_screen.dart';
 
 class LegalCasesScreen extends StatelessWidget {
   final SubcategoryEntity subcategory;
+  final String categoryName;
 
-  const LegalCasesScreen({super.key, required this.subcategory});
+  const LegalCasesScreen({
+    super.key,
+    required this.subcategory,
+    required this.categoryName,
+  });
 
   // Check if current user is the authorized administrator
   bool _isAdmin() {
@@ -200,13 +206,15 @@ class LegalCasesScreen extends StatelessWidget {
                                 ],
                               ],
                               onTap: () {
-                                Navigator.push(
+                                AdMobService.pushWithInterstitial(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => BlocProvider(
                                       create: (_) => sl<LegalCubit>(),
                                       child: CaseRoadmapScreen(
                                         legalCase: legalCase,
+                                        categoryId: subcategory.categoryId,
+                                        categoryName: categoryName,
                                       ),
                                     ),
                                   ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_theme.dart';
 import '../../domain/entities/case_step_entity.dart';
 import '../../domain/entities/step_branch.dart';
@@ -135,7 +136,13 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
               ),
             ),
           ),
-          bottomNavigationBar: _stepNavigation(accent),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [_stepNavigation(accent), const AdMobBanner()],
+            ),
+          ),
         ),
       ),
     );
@@ -170,65 +177,57 @@ class _StepDetailScreenState extends State<StepDetailScreen> {
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: hasPrevious
-                      ? () => _showStep(_currentStepIndex - 1)
-                      : null,
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('السابقة'),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextButton.icon(
+                onPressed: hasPrevious
+                    ? () => _showStep(_currentStepIndex - 1)
+                    : null,
+                icon: const Icon(Icons.arrow_forward_rounded),
+                label: const Text('السابقة'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 8,
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              decoration: BoxDecoration(
+                color: accent.color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: accent.color.withValues(alpha: 0.22)),
+              ),
+              child: Text(
+                '${_currentStepIndex + 1} من ${widget.steps.length}',
+                style: TextStyle(
+                  color: LegalTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                 ),
-                decoration: BoxDecoration(
-                  color: accent.color.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: accent.color.withValues(alpha: 0.22),
-                  ),
-                ),
-                child: Text(
-                  '${_currentStepIndex + 1} من ${widget.steps.length}',
-                  style: TextStyle(
-                    color: LegalTheme.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+              ),
+            ),
+            Expanded(
+              child: TextButton.icon(
+                onPressed: hasNext
+                    ? () => _showStep(_currentStepIndex + 1)
+                    : null,
+                icon: const Icon(Icons.arrow_back_rounded),
+                label: const Text('التالية'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: hasNext
-                      ? () => _showStep(_currentStepIndex + 1)
-                      : null,
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  label: const Text('التالية'),
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
