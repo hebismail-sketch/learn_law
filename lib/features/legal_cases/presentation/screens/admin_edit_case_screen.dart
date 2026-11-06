@@ -583,7 +583,10 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 Text(
                   name,
@@ -644,9 +647,11 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => rebuildWithAppTheme(_buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'تعديل بيانات ومسار القضية',
@@ -741,11 +746,11 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                               icon: Icons.folder_special_rounded,
                               label: 'الفولدر الكبير',
                               name: _categoryName,
-                              color: const Color(0xFF1E3A8A),
+                              color: const Color(0xFF38BDF8),
                             ),
                             if (_subcategoryName.isNotEmpty) ...[
-                              const Padding(
-                                padding: EdgeInsets.only(
+                              Padding(
+                                padding: const EdgeInsets.only(
                                   right: 6,
                                   top: 2,
                                   bottom: 2,
@@ -753,7 +758,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                                 child: Text(
                                   '‹',
                                   style: TextStyle(
-                                    color: Colors.grey,
+                                    color: AppColors.textMuted,
                                     fontSize: 18,
                                   ),
                                 ),
@@ -916,7 +921,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                               ),
                             ],
                           ),
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(top: 6),
                             child: Text(
                               'من داخل محرر المسارات: أضف فرعاً (قبول/رفض/طور ثاني/فرع أخر)، '
@@ -926,7 +931,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 height: 1.6,
-                                color: Colors.grey,
+                                color: AppColors.textMuted,
                               ),
                             ),
                           ),
@@ -1054,9 +1059,11 @@ class _CaseRoadmapEditorScreenState extends State<_CaseRoadmapEditorScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => rebuildWithAppTheme(_buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'محرر خطوات ومسارات القضية',
@@ -1073,9 +1080,9 @@ class _CaseRoadmapEditorScreenState extends State<_CaseRoadmapEditorScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: AppColors.raisedSurface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+                border: Border.all(color: AppColors.border),
               ),
               child: Text(
                 'القضية: ${widget.caseTitle}\n'
@@ -1083,10 +1090,10 @@ class _CaseRoadmapEditorScreenState extends State<_CaseRoadmapEditorScreen> {
                 'داخل الفرع اضغط «إضافة تفريع لهذا المسار» لتفريعه من جديد، '
                 'أو «الانتقال للخطوة التالية» لتوصيل هذا المسار بالخطوة التالية في القضية.',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   height: 1.6,
-                  color: Color(0xFF1E3A8A),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
@@ -1101,7 +1108,7 @@ class _CaseRoadmapEditorScreenState extends State<_CaseRoadmapEditorScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: const [
                   BoxShadow(
@@ -1142,12 +1149,12 @@ class _CaseRoadmapEditorScreenState extends State<_CaseRoadmapEditorScreen> {
                 ),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.only(top: 10),
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
               child: Text(
                 'ملاحظة: لا تُحفظ التعديلات في قاعدة البيانات إلا بعد الضغط على «حفظ كافة التعديلات» في الشاشة السابقة.',
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
               ),
             ),
           ],

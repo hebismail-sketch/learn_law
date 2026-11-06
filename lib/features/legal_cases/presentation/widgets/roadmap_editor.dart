@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/app_theme.dart';
 import '../../../../core/legal_text.dart';
 import 'legal_text_input_formatter.dart';
 
@@ -635,11 +636,11 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: AppColors.raisedSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(color: AppColors.border),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
@@ -652,12 +653,12 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.6,
-                color: Color(0xFF1E3A8A),
+                color: AppColors.textPrimary,
               ),
             ),
           ),
           SizedBox(width: 8),
-          Icon(Icons.account_tree_rounded, color: Color(0xFF1D4ED8)),
+          const Icon(Icons.account_tree_rounded, color: Color(0xFF38BDF8)),
         ],
       ),
     );
@@ -673,9 +674,9 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.raisedSurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -697,9 +698,9 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                 child: Text(
                   'الخطوة الرئيسية (${index + 1})',
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E3A8A),
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -755,17 +756,17 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                   'فروع هذه الخطوة (${step.branches.length})',
                   textAlign: TextAlign.right,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: Color(0xFF334155),
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.call_split_rounded,
                 size: 18,
-                color: Color(0xFF64748B),
+                color: AppColors.textSecondary,
               ),
             ],
           ),
@@ -775,14 +776,17 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: AppColors.border),
               ),
-              child: const Text(
+              child: Text(
                 'لا توجد فروع بعد لهذه الخطوة. اضغط «إضافة فرع» لإضافة قبول أو رفض..',
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.textSecondary,
+                ),
               ),
             )
           else
@@ -834,7 +838,7 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
     return Container(
       margin: EdgeInsets.only(top: 12, right: depth * 10.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.55), width: 1.5),
       ),
@@ -973,9 +977,9 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: AppColors.raisedSurface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -996,10 +1000,10 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
                   'محطات الفرع ($count)',
                   textAlign: TextAlign.right,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -1011,12 +1015,12 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
             ],
           ),
           if (count == 0)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Text(
                 'لا توجد محطات بعد. هذه الخطوات المتتالية التي تظهر على الجانب في خريطة الطريق.',
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
             )
           else
@@ -1125,7 +1129,7 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               child: Text(
                 'اتركه فرعاً نهائياً، أو تفرع داخله (مثال: رفض ← طعن ← قبول الطعن).',
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
             )
           else
@@ -1164,9 +1168,9 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1266,12 +1270,12 @@ class _RoadmapEditorState extends State<RoadmapEditor> {
               ),
             )
           else if (!hasNextStep)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
               child: Text(
                 'لا توجد خطوة تالية بعد. أضف «خطوة رئيسية جديدة» أسفل المحرر ثم اضغط هذا الزر لربط المسار بها.',
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
             ),
         ],
@@ -1384,12 +1388,12 @@ class RoadmapPreview extends StatelessWidget {
         .toList();
 
     if (filled.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(
           'ستظهر هنا معاينة الشكل النهائي بمجرد كتابة أول خطوة.',
           textAlign: TextAlign.right,
-          style: TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
       );
     }
@@ -1458,12 +1462,12 @@ class RoadmapPreview extends StatelessWidget {
             isRoot: false,
           ),
           if (stations.isEmpty && branch.subBranches.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Text(
                 '—',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
             ),
           for (final s in stations) ...[
@@ -1478,17 +1482,17 @@ class RoadmapPreview extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: accent.withValues(alpha: 0.45)),
               ),
               child: Text(
                 s,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF334155),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),

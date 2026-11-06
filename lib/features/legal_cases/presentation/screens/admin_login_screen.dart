@@ -101,9 +101,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => rebuildWithAppTheme(_buildScreen);
+
+  Widget _buildScreen(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'بوابة تسجيل دخول المشرف',
@@ -131,7 +133,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     // Lock icon header
                     CircleAvatar(
                       radius: 36,
-                      backgroundColor: const Color(0xFF1E3A8A).withOpacity(0.1),
+                      backgroundColor: const Color(
+                        0xFF38BDF8,
+                      ).withValues(alpha: 0.12),
                       child: const Icon(
                         Icons.admin_panel_settings_rounded,
                         size: 42,
@@ -139,13 +143,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'منطقة مخصصة للإدارة',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -154,7 +158,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey.shade600,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 24),

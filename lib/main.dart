@@ -40,17 +40,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: AppThemeController.isLight,
-      builder: (context, isLight, _) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'الدليل القانوني',
-        theme: AppColors.theme,
-        home: AppOpenAdStartupGate(
-          child: BlocProvider(
-            create: (_) => sl<LegalCubit>(),
-            child: const CategoriesScreen(),
-          ),
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'الدليل القانوني',
+      theme: AppColors.theme,
+      builder: (context, child) => ValueListenableBuilder<bool>(
+        valueListenable: AppThemeController.isLight,
+        builder: (context, _, _) => Theme(
+          data: AppColors.theme,
+          child: child ?? const SizedBox.shrink(),
+        ),
+      ),
+      home: AppOpenAdStartupGate(
+        child: BlocProvider(
+          create: (_) => sl<LegalCubit>(),
+          child: const CategoriesScreen(),
         ),
       ),
     );
