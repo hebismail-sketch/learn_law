@@ -1,4 +1,4 @@
-# دليل المحاماة — Legal Guide (Learn Law)
+# مِراس | تدريب المحامي — Legal Guide (Learn Law)
 
 A Flutter mobile application that gives lawyers, law students and the general public an
 organized, offline-ready reference for legal procedures: every dispute is broken down into
@@ -19,7 +19,7 @@ categories → subcategories → cases → step-by-step roadmaps → outcomes (b
 
 ## Project Name
 
-**دليل المحاماة** (app title displayed in `MaterialApp`) — package name: **`learn_law`**.
+**مِراس | تدريب المحامي** (app title displayed in `MaterialApp`) — package name: **`learn_law`**.
 
 ---
 
@@ -27,7 +27,7 @@ categories → subcategories → cases → step-by-step roadmaps → outcomes (b
 
 ### What the app does
 
-"دليل المحاماة" is a legal-procedure guide. Instead of reading a whole book to find what
+"مِراس | تدريب المحامي" is a legal-procedure guide. Instead of reading a whole book to find what
 happens next in a case, the user browses a tree of content and follows a roadmap:
 
 ```

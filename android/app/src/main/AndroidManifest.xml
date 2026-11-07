@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <application
-        android:label="learn_law"
+        android:label="مِراس | تدريب المحامي"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <!-- Google's sample app ID keeps the closed-test build on test inventory. -->

@@ -1,11 +1,11 @@
 {
-    "name": "learn_law",
-    "short_name": "learn_law",
+    "name": "مِراس | تدريب المحامي",
+    "short_name": "مِراس | تدريب المحامي",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "مِراس | تدريب المحامي",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

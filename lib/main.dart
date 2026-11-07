@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'الدليل القانوني',
+      title: 'مِراس | تدريب المحامي',
       theme: AppColors.theme,
       builder: (context, child) => ValueListenableBuilder<bool>(
         valueListenable: AppThemeController.isLight,
