@@ -57,7 +57,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       _secretTapCount = 0;
     });
 
-    if (_secretTapCount >= 5) {
+    if (_secretTapCount >= 10) {
       _secretTapCount = 0;
       _secretTapTimer?.cancel();
       _openAdminGate();

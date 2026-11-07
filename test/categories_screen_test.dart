@@ -16,9 +16,20 @@ import 'package:learn_law/features/legal_cases/domain/usecases/get_legal_cases_u
 import 'package:learn_law/features/legal_cases/domain/usecases/get_subcategories_usecase.dart';
 import 'package:learn_law/features/legal_cases/presentation/bloc/legal_cubit.dart';
 import 'package:learn_law/features/legal_cases/presentation/screens/categories_screen.dart';
+import 'package:learn_law/features/legal_cases/presentation/screens/admin_login_screen.dart';
 import 'package:learn_law/features/legal_cases/presentation/state/legal_case_favorites.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await Supabase.initialize(
+      url: 'https://example.supabase.co',
+      anonKey: 'test-anon-key',
+    );
+  });
+
   setUp(() {
     AppThemeController.isLight.value = false;
     if (sl.isRegistered<SyncManager>()) sl.unregister<SyncManager>();
@@ -91,6 +102,31 @@ void main() {
     expect(AppColors.background, AppColors.lightBackground);
     expect(find.byIcon(Icons.dark_mode_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens admin login after ten title taps', (tester) async {
+    final cubit = _createCubit();
+    addTearDown(cubit.close);
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: cubit,
+        child: const MaterialApp(home: CategoriesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final title = find.text('دليل المحاماة');
+    for (var tap = 0; tap < 9; tap++) {
+      await tester.tap(title);
+      await tester.pump();
+    }
+
+    expect(find.byType(AdminLoginScreen), findsNothing);
+
+    await tester.tap(title);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AdminLoginScreen), findsOneWidget);
   });
 
   testWidgets('shows and removes favorited legal cases from favorites', (
