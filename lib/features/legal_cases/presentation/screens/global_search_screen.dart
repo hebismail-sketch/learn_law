@@ -53,6 +53,12 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     });
   }
 
+  void _handleBack() {
+    _debounceTimer?.cancel();
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
+  }
+
   // Search active cases cached on this device and their active folder names.
   Future<void> _performSearch(String query) async {
     setState(() {
@@ -87,41 +93,49 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return rebuildWithAppTheme(
-      (context) => Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.appBar,
-          foregroundColor: AppColors.textPrimary,
-          surfaceTintColor: Colors.transparent,
-          title: TextField(
-            controller: _searchController,
-            autofocus: true,
-            textAlign: TextAlign.right,
-            style: TextStyle(color: AppColors.textPrimary),
-            cursorColor: const Color(0xFF38BDF8),
-            decoration: InputDecoration(
-              hintText: 'ابحث باسم القضية...',
-              border: InputBorder.none,
-              hintStyle: TextStyle(color: AppColors.textMuted),
-              suffixIcon: _searchController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: Color(0xFF94A3B8)),
-                      onPressed: () {
-                        _searchController.clear();
-                        _onSearchChanged('');
-                      },
-                    )
-                  : const Icon(Icons.search, color: Color(0xFF38BDF8)),
+    return rebuildWithAppTheme((context) {
+      final navigator = Navigator.of(context);
+      return PopScope(
+        canPop: navigator.canPop(),
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.appBar,
+            foregroundColor: AppColors.textPrimary,
+            surfaceTintColor: Colors.transparent,
+            leading: BackButton(
+              key: const ValueKey('global-search-back'),
+              onPressed: _handleBack,
             ),
-            onChanged: _onSearchChanged,
+            title: TextField(
+              controller: _searchController,
+              autofocus: true,
+              textAlign: TextAlign.right,
+              style: TextStyle(color: AppColors.textPrimary),
+              cursorColor: const Color(0xFF38BDF8),
+              decoration: InputDecoration(
+                hintText: 'ابحث باسم القضية...',
+                border: InputBorder.none,
+                hintStyle: TextStyle(color: AppColors.textMuted),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Color(0xFF94A3B8)),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      )
+                    : const Icon(Icons.search, color: Color(0xFF38BDF8)),
+              ),
+              onChanged: _onSearchChanged,
+            ),
+            elevation: 0,
+            actions: const [ThemeToggleButton()],
           ),
-          elevation: 0,
-          actions: const [ThemeToggleButton()],
+          body: StarryBackground(child: _buildBody()),
         ),
-        body: StarryBackground(child: _buildBody()),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildBody() {
