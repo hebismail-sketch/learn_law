@@ -13,6 +13,7 @@ import 'features/legal_cases/presentation/screens/categories_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppThemeController.initialize();
 
   await Supabase.initialize(
     url: 'https://ptsfjeersiesgjtvcjkh.supabase.co',

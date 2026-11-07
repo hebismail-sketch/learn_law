@@ -1,11 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppThemeController {
   AppThemeController._();
 
+  static const _isLightPreferenceKey = 'is_light_theme';
   static final ValueNotifier<bool> isLight = ValueNotifier(false);
+  static SharedPreferences? _preferences;
 
-  static void toggle() => isLight.value = !isLight.value;
+  static Future<void> initialize() async {
+    final preferences = await SharedPreferences.getInstance();
+    _preferences = preferences;
+    isLight.value = preferences.getBool(_isLightPreferenceKey) ?? false;
+  }
+
+  static Future<void> toggle() async {
+    final preferences = _preferences ?? await SharedPreferences.getInstance();
+    final newValue = !isLight.value;
+    final saved = await preferences.setBool(_isLightPreferenceKey, newValue);
+    if (!saved) throw StateError('Could not save the selected app theme.');
+
+    _preferences = preferences;
+    isLight.value = newValue;
+  }
 }
 
 Widget rebuildWithAppTheme(WidgetBuilder builder) {
@@ -81,7 +98,23 @@ class ThemeToggleButton extends StatelessWidget {
       valueListenable: AppThemeController.isLight,
       builder: (context, isLight, _) => IconButton(
         tooltip: isLight ? 'الوضع الداكن' : 'الوضع الفاتح',
-        onPressed: AppThemeController.toggle,
+        onPressed: () async {
+          try {
+            await AppThemeController.toggle();
+          } catch (error, stackTrace) {
+            debugPrint('Failed to save app theme: $error\n$stackTrace');
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'تعذر حفظ إعدادات المظهر. حاول مرة أخرى.',
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              );
+            }
+          }
+        },
         icon: Icon(
           isLight ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
         ),

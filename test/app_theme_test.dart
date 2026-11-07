@@ -2,10 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:learn_law/core/app_theme.dart';
 import 'package:learn_law/features/legal_cases/presentation/widgets/roadmap_list_tile.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() => AppThemeController.isLight.value = false);
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await AppThemeController.initialize();
+    AppThemeController.isLight.value = false;
+  });
   tearDown(() => AppThemeController.isLight.value = false);
+
+  test('restores and persists both theme selections', () async {
+    SharedPreferences.setMockInitialValues({'is_light_theme': true});
+    await AppThemeController.initialize();
+    expect(AppThemeController.isLight.value, isTrue);
+
+    await AppThemeController.toggle();
+    expect(AppThemeController.isLight.value, isFalse);
+    await AppThemeController.initialize();
+    expect(AppThemeController.isLight.value, isFalse);
+
+    await AppThemeController.toggle();
+    expect(AppThemeController.isLight.value, isTrue);
+    await AppThemeController.initialize();
+    expect(AppThemeController.isLight.value, isTrue);
+  });
 
   testWidgets('app bar toggle switches theme while preserving accent icons', (
     tester,
@@ -52,10 +73,7 @@ void main() {
       Brightness.light,
     );
     expect(AppColors.background, AppColors.lightBackground);
-    expect(
-      tester.widget<Icon>(accentIcon).color,
-      accentIconColor,
-    );
+    expect(tester.widget<Icon>(accentIcon).color, accentIconColor);
     expect(find.byIcon(Icons.dark_mode_rounded), findsOneWidget);
   });
 
@@ -99,13 +117,15 @@ void main() {
 
     expect(find.byKey(const ValueKey('detail-page')), findsOneWidget);
     expect(
-      Navigator.of(tester.element(find.byKey(const ValueKey('detail-page'))))
-          .canPop(),
+      Navigator.of(
+        tester.element(find.byKey(const ValueKey('detail-page'))),
+      ).canPop(),
       isTrue,
     );
     expect(
-      Theme.of(tester.element(find.byKey(const ValueKey('detail-page'))))
-          .brightness,
+      Theme.of(
+        tester.element(find.byKey(const ValueKey('detail-page'))),
+      ).brightness,
       Brightness.light,
     );
   });
