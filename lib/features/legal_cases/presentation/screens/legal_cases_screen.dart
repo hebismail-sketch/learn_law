@@ -10,7 +10,6 @@ import '../../domain/entities/subcategory_entity.dart';
 import '../../domain/entities/legal_case_entity.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
-import '../state/legal_case_favorites.dart';
 import '../widgets/legal_browse_header.dart';
 import '../widgets/legal_case_favorite_button.dart';
 import '../widgets/roadmap_list_tile.dart';
@@ -164,11 +163,7 @@ class LegalCasesScreen extends StatelessWidget {
                               index: index,
                               icon: Icons.gavel_rounded,
                               actions: [
-                                LegalCaseFavoriteButton(
-                                  caseId: legalCase.id,
-                                  onPressed: () => LegalCaseFavorites.instance
-                                      .toggle(legalCase),
-                                ),
+                                LegalCaseFavoriteButton(legalCase: legalCase),
                                 if (isAdminUser) ...[
                                   IconButton(
                                     icon: const Icon(

@@ -10,10 +10,12 @@ import 'core/sync/sync_manager.dart';
 import 'core/sync/sync_types.dart';
 import 'features/legal_cases/presentation/bloc/legal_cubit.dart';
 import 'features/legal_cases/presentation/screens/categories_screen.dart';
+import 'features/legal_cases/presentation/state/legal_case_favorites.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppThemeController.initialize();
+  await LegalCaseFavorites.instance.initialize();
 
   await Supabase.initialize(
     url: 'https://ptsfjeersiesgjtvcjkh.supabase.co',

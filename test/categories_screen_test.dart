@@ -30,7 +30,9 @@ void main() {
     );
   });
 
-  setUp(() {
+  setUp(() async {
+    await (await SharedPreferences.getInstance()).clear();
+    await LegalCaseFavorites.instance.initialize();
     AppThemeController.isLight.value = false;
     if (sl.isRegistered<SyncManager>()) sl.unregister<SyncManager>();
     sl.registerSingleton<SyncManager>(_FakeSyncManager());
@@ -74,7 +76,11 @@ void main() {
     await tester.ensureVisible(firstCategory);
     await tester.pumpAndSettle();
     await tester.longPress(firstCategory);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
     await tester.pumpAndSettle();
+    expect(LegalCaseFavorites.instance.containsCategory('family'), isTrue);
     tester
         .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
         .hideCurrentSnackBar();
@@ -138,10 +144,10 @@ void main() {
       name: 'دعوى نفقة',
       description: 'إجراءات دعوى النفقة',
     );
-    LegalCaseFavorites.instance.toggle(legalCase);
-    addTearDown(() {
+    await tester.runAsync(() => LegalCaseFavorites.instance.toggle(legalCase));
+    addTearDown(() async {
       if (LegalCaseFavorites.instance.contains(legalCase.id)) {
-        LegalCaseFavorites.instance.toggle(legalCase);
+        await LegalCaseFavorites.instance.toggle(legalCase);
       }
     });
 
@@ -163,6 +169,9 @@ void main() {
     expect(find.byTooltip('إزالة من المفضلة'), findsOneWidget);
 
     await tester.tap(find.byTooltip('إزالة من المفضلة'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('favorite-case-case-1')), findsNothing);

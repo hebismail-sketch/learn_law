@@ -34,7 +34,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   int _secretTapCount = 0;
   int _selectedTab = 0;
   Timer? _secretTapTimer;
-  final Set<String> _favoriteCategoryIds = {};
   final Set<String> _unlockedCategoryIds = {};
   String? _categoryStatusSnapshot;
 
@@ -80,21 +79,34 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (mounted) context.read<LegalCubit>().fetchCategories();
   }
 
-  void _toggleFavorite(CategoryEntity category) {
-    final wasFavorite = _favoriteCategoryIds.contains(category.id);
-    setState(() {
-      if (wasFavorite) {
-        _favoriteCategoryIds.remove(category.id);
-      } else {
-        _favoriteCategoryIds.add(category.id);
+  Future<void> _toggleFavorite(CategoryEntity category) async {
+    late final bool isFavorite;
+    try {
+      isFavorite = await LegalCaseFavorites.instance.toggleCategory(
+        category.id,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to save category favorite: $error\n$stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذر حفظ التصنيف في المفضلة. حاول مرة أخرى.',
+              textAlign: TextAlign.right,
+            ),
+          ),
+        );
       }
-    });
+      return;
+    }
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          wasFavorite
-              ? 'تمت إزالة ${category.name} من المفضلة'
-              : 'تمت إضافة ${category.name} إلى المفضلة',
+          isFavorite
+              ? 'تمت إضافة ${category.name} إلى المفضلة'
+              : 'تمت إزالة ${category.name} من المفضلة',
           textAlign: TextAlign.right,
         ),
         duration: const Duration(seconds: 2),
@@ -284,7 +296,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     final visibleCategories = _selectedTab == 0
         ? categories
         : categories
-              .where((category) => _favoriteCategoryIds.contains(category.id))
+              .where(
+                (category) =>
+                    LegalCaseFavorites.instance.containsCategory(category.id),
+              )
               .toList();
     final favoriteCases = _selectedTab == 1
         ? LegalCaseFavorites.instance.cases
@@ -324,9 +339,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         ),
                         category: visibleCategories[index],
                         index: categories.indexOf(visibleCategories[index]),
-                        isFavorite: _favoriteCategoryIds.contains(
-                          visibleCategories[index].id,
-                        ),
+                        isFavorite: LegalCaseFavorites.instance
+                            .containsCategory(visibleCategories[index].id),
                         isLocked:
                             !CategoryAccess.isAlwaysFree(
                               visibleCategories[index].name,
@@ -371,9 +385,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           onTap: () => _openFavoriteCase(favoriteCases[index]),
                           actions: [
                             LegalCaseFavoriteButton(
-                              caseId: favoriteCases[index].id,
-                              onPressed: () => LegalCaseFavorites.instance
-                                  .toggle(favoriteCases[index]),
+                              legalCase: favoriteCases[index],
                             ),
                           ],
                         ),
