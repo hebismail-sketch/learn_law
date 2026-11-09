@@ -315,8 +315,13 @@ abstract final class AdMobService {
 
 class AppOpenAdStartupGate extends StatefulWidget {
   final Widget child;
+  final Future<void> Function()? startupAdLoader;
 
-  const AppOpenAdStartupGate({super.key, required this.child});
+  const AppOpenAdStartupGate({
+    super.key,
+    required this.child,
+    this.startupAdLoader,
+  });
 
   @override
   State<AppOpenAdStartupGate> createState() => _AppOpenAdStartupGateState();
@@ -332,8 +337,22 @@ class _AppOpenAdStartupGateState extends State<AppOpenAdStartupGate> {
   }
 
   Future<void> _showStartupAd() async {
-    await AdMobService.showStartupAppOpenAd();
-    if (mounted) setState(() => _isReady = true);
+    try {
+      await (widget.startupAdLoader?.call() ??
+              AdMobService.showStartupAppOpenAd())
+          .timeout(
+            AdMobService._startupAdTimeout,
+            onTimeout: () {
+              debugPrint('Startup ad timed out; continuing without blocking.');
+            },
+          );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Startup ad failed; continuing without blocking: $error\n$stackTrace',
+      );
+    } finally {
+      if (mounted) setState(() => _isReady = true);
+    }
   }
 
   @override
