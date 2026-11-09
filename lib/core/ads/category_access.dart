@@ -87,7 +87,17 @@ class _CategoryUnlockSheetState extends State<_CategoryUnlockSheet> {
       _message = null;
     });
 
-    final result = await widget.rewardedAdLoader(() => mounted && _isLoading);
+    late final RewardedAdResult result;
+    try {
+      result = await widget.rewardedAdLoader(
+        () => mounted && _isLoading,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Rewarded ad loader failed: $error\n$stackTrace');
+      if (!mounted) return;
+      _showFailure('تعذر تحميل الإعلان. تأكد من اتصال الإنترنت وحاول مرة أخرى.');
+      return;
+    }
     if (!mounted) return;
 
     switch (result) {

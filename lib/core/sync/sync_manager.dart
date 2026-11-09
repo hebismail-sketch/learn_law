@@ -70,12 +70,12 @@ class SyncManager {
   Future<SyncResult> _run() async {
     _emit(SyncStatus.syncing);
 
-    if (!await connectivity.isOnline) {
-      _emit(SyncStatus.offline);
-      return const SyncResult(status: SyncStatus.offline);
-    }
-
     try {
+      if (!await connectivity.isOnline) {
+        _emit(SyncStatus.offline);
+        return const SyncResult(status: SyncStatus.offline);
+      }
+
       final pushed = await _pushQueue();
       final pulled = await _pullChanges();
       _emit(SyncStatus.success);

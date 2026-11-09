@@ -148,4 +148,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(categoryOpened, isFalse);
   });
+
+  testWidgets('recovers when the rewarded ad loader throws', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => CategoryAccess.requestAccess(
+                context,
+                categoryId: 'civil',
+                categoryName: 'الدعاوى المدنية',
+                rewardedAdLoader: (_) async => throw StateError('ad failed'),
+              ),
+              child: const Text('فتح التصنيف'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('فتح التصنيف'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مشاهدة إعلان وفتح التصنيف 30 يومًا'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('تعذر تحميل الإعلان. تأكد من اتصال الإنترنت وحاول مرة أخرى.'),
+      findsOneWidget,
+    );
+    expect(find.text('جارٍ تحميل الإعلان...'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
