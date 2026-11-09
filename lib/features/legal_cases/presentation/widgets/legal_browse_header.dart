@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/app_theme.dart';
+import 'legal_theme_artwork.dart';
 
 class LegalBrowseHeaderTitle extends StatelessWidget {
   const LegalBrowseHeaderTitle({
@@ -124,13 +125,15 @@ class LegalBrowseBanner extends StatelessWidget {
             right: -12,
             top: -12,
             bottom: -12,
-            child: Opacity(
-              opacity: isLight ? 0.28 : 0.42,
-              child: Image.asset(
-                'assets/images/mizan.png',
-                width: 190,
-                fit: BoxFit.cover,
-                alignment: Alignment.centerRight,
+            child: LegalThemeArtwork(
+              child: Opacity(
+                opacity: isLight ? 0.28 : 0.42,
+                child: Image.asset(
+                  'assets/images/mizan.png',
+                  width: 190,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.centerRight,
+                ),
               ),
             ),
           ),

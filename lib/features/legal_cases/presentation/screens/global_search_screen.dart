@@ -55,8 +55,9 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
 
   void _handleBack() {
     _debounceTimer?.cancel();
+    final route = ModalRoute.of(context);
     final navigator = Navigator.of(context);
-    if (navigator.canPop()) navigator.pop();
+    if (route != null && !route.isFirst) navigator.pop();
   }
 
   // Search active cases cached on this device and their active folder names.
@@ -94,9 +95,9 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return rebuildWithAppTheme((context) {
-      final navigator = Navigator.of(context);
+      final route = ModalRoute.of(context);
       return PopScope(
-        canPop: navigator.canPop(),
+        canPop: route != null && !route.isFirst,
         child: Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(

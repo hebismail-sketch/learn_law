@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:learn_law/core/app_theme.dart';
 import 'package:learn_law/features/legal_cases/presentation/screens/global_search_screen.dart';
 
 void main() {
+  setUp(() => AppThemeController.isLight.value = false);
+  tearDown(() => AppThemeController.isLight.value = false);
+
   testWidgets('back does not close the app when search is the root screen', (
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: GlobalSearchScreen()));
     await tester.pumpAndSettle();
 
+    AppThemeController.isLight.value = true;
+    await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(GlobalSearchScreen), findsOneWidget);

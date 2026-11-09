@@ -110,6 +110,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Android back does not close the app from the home screen', (
+    tester,
+  ) async {
+    final cubit = _createCubit();
+    addTearDown(cubit.close);
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: cubit,
+        child: const MaterialApp(home: CategoriesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    AppThemeController.isLight.value = true;
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CategoriesScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens admin login after ten title taps', (tester) async {
     final cubit = _createCubit();
     addTearDown(cubit.close);

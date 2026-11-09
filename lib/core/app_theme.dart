@@ -17,11 +17,16 @@ class AppThemeController {
   static Future<void> toggle() async {
     final preferences = _preferences ?? await SharedPreferences.getInstance();
     final newValue = !isLight.value;
-    final saved = await preferences.setBool(_isLightPreferenceKey, newValue);
-    if (!saved) throw StateError('Could not save the selected app theme.');
-
-    _preferences = preferences;
     isLight.value = newValue;
+    try {
+      final saved = await preferences.setBool(_isLightPreferenceKey, newValue);
+      if (!saved) throw StateError('Could not save the selected app theme.');
+
+      _preferences = preferences;
+    } catch (error, stackTrace) {
+      if (isLight.value == newValue) isLight.value = !newValue;
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 }
 

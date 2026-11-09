@@ -21,6 +21,7 @@ import 'global_search_screen.dart';
 import 'subcategories_screen.dart';
 import '../state/legal_case_favorites.dart';
 import '../widgets/legal_case_favorite_button.dart';
+import '../widgets/legal_theme_artwork.dart';
 import '../widgets/roadmap_list_tile.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -112,6 +113,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  Future<void> _toggleTheme() async {
+    try {
+      await AppThemeController.toggle();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to save app theme: $error\n$stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذر حفظ إعدادات المظهر. حاول مرة أخرى.',
+              textAlign: TextAlign.right,
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _openCategory(CategoryEntity category) async {
@@ -231,64 +250,68 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return rebuildWithAppTheme(
-      (context) => Scaffold(
-        backgroundColor: AppColors.background,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              _HomeHeader(
-                onTitleTap: _handleSecretTap,
-                onThemeTap: AppThemeController.toggle,
-              ),
-              _SearchBar(onTap: _openSearch),
-              Expanded(
-                child: SyncRefreshListener(
-                  onSyncComplete: () =>
-                      context.read<LegalCubit>().refreshCategories(),
-                  child: BlocBuilder<LegalCubit, LegalState>(
-                    builder: (context, state) {
-                      if (state is LegalLoading || state is LegalInitial) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF38BDF8),
-                          ),
-                        );
-                      }
-                      if (state is LegalError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              state.message,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.redAccent),
+    return rebuildWithAppTheme((context) {
+      final route = ModalRoute.of(context);
+      return PopScope(
+        canPop: route != null && !route.isFirst,
+        child: Scaffold(
+          backgroundColor: AppColors.background,
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                _HomeHeader(
+                  onTitleTap: _handleSecretTap,
+                  onThemeTap: () => unawaited(_toggleTheme()),
+                ),
+                _SearchBar(onTap: _openSearch),
+                Expanded(
+                  child: SyncRefreshListener(
+                    onSyncComplete: () =>
+                        context.read<LegalCubit>().refreshCategories(),
+                    child: BlocBuilder<LegalCubit, LegalState>(
+                      builder: (context, state) {
+                        if (state is LegalLoading || state is LegalInitial) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF38BDF8),
                             ),
-                          ),
-                        );
-                      }
-                      if (state is CategoriesLoaded) {
-                        return AnimatedBuilder(
-                          animation: LegalCaseFavorites.instance,
-                          builder: (context, _) =>
-                              _buildContent(state.categories),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
+                          );
+                        }
+                        if (state is LegalError) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                state.message,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.redAccent),
+                              ),
+                            ),
+                          );
+                        }
+                        if (state is CategoriesLoaded) {
+                          return AnimatedBuilder(
+                            animation: LegalCaseFavorites.instance,
+                            builder: (context, _) =>
+                                _buildContent(state.categories),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ),
                 ),
-              ),
-              _BottomNavigationBar(
-                selectedIndex: _selectedTab,
-                onSelected: (index) => setState(() => _selectedTab = index),
-              ),
-            ],
+                _BottomNavigationBar(
+                  selectedIndex: _selectedTab,
+                  onSelected: (index) => setState(() => _selectedTab = index),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildContent(List<CategoryEntity> categories) {
@@ -463,12 +486,14 @@ class _HomeHeader extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(2),
                   child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/mizan.png',
-                      width: 48,
-                      height: 48,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
+                    child: LegalThemeArtwork(
+                      child: Image.asset(
+                        'assets/images/mizan.png',
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                      ),
                     ),
                   ),
                 ),
@@ -826,17 +851,19 @@ class _BannerArtwork extends StatelessWidget {
             FractionallySizedBox(
               alignment: Alignment.centerRight,
               widthFactor: 0.55,
-              child: Image.asset(
-                _assetPath,
-                fit: BoxFit.contain,
-                alignment: Alignment.centerRight,
-                filterQuality: FilterQuality.high,
-                errorBuilder: (context, error, stackTrace) => ColorFiltered(
-                  colorFilter: const ColorFilter.mode(
-                    Color(0x22000000),
-                    BlendMode.srcATop,
+              child: LegalThemeArtwork(
+                child: Image.asset(
+                  _assetPath,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerRight,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) => ColorFiltered(
+                    colorFilter: const ColorFilter.mode(
+                      Color(0x22000000),
+                      BlendMode.srcATop,
+                    ),
+                    child: const _LegalIllustration(),
                   ),
-                  child: const _LegalIllustration(),
                 ),
               ),
             ),
