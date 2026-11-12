@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,16 +7,12 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../app_theme.dart';
 
-enum RewardedAdResult { earned, notEarned, unavailable }
-
 abstract final class AdMobService {
   // Google sample ad units keep requests in test mode until launch.
   static const appOpenAdUnitId = 'ca-app-pub-3940256099942544/9257395921';
   static const bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
   static const interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
-  static const rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
   static const _startupAdTimeout = Duration(seconds: 5);
-  static const _rewardedAdLoadTimeout = Duration(seconds: 20);
   static const _interstitialNavigationInterval = 3;
 
   static Future<void>? _initialization;
@@ -207,109 +203,6 @@ abstract final class AdMobService {
     }
 
     await completer.future;
-  }
-
-  static Future<RewardedAdResult> showCategoryUnlockAd(
-    bool Function() isStillRequested,
-  ) async {
-    if (!_isSupportedPlatform) return RewardedAdResult.unavailable;
-
-    final initialized = await isReady.timeout(
-      _rewardedAdLoadTimeout,
-      onTimeout: () => false,
-    );
-    if (!initialized) return RewardedAdResult.unavailable;
-
-    final completer = Completer<RewardedAdResult>();
-    var completed = false;
-    var earnedReward = false;
-    Timer? loadTimeout;
-
-    void finish(RewardedAdResult result) {
-      if (completed) return;
-      completed = true;
-      loadTimeout?.cancel();
-      completer.complete(result);
-    }
-
-    loadTimeout = Timer(
-      _rewardedAdLoadTimeout,
-      () => finish(RewardedAdResult.unavailable),
-    );
-
-    try {
-      RewardedAd.load(
-        adUnitId: rewardedAdUnitId,
-        request: const AdRequest(),
-        rewardedAdLoadCallback: RewardedAdLoadCallback(
-          onAdLoaded: (ad) {
-            if (completed || !isStillRequested()) {
-              ad.dispose();
-              finish(RewardedAdResult.unavailable);
-              return;
-            }
-
-            loadTimeout?.cancel();
-            ad.fullScreenContentCallback =
-                FullScreenContentCallback<RewardedAd>(
-                  onAdDismissedFullScreenContent: (ad) {
-                    ad.dispose();
-                    finish(
-                      earnedReward
-                          ? RewardedAdResult.earned
-                          : RewardedAdResult.notEarned,
-                    );
-                  },
-                  onAdFailedToShowFullScreenContent: (ad, error) {
-                    debugPrint('Rewarded ad failed to show: $error');
-                    ad.dispose();
-                    finish(
-                      earnedReward
-                          ? RewardedAdResult.earned
-                          : RewardedAdResult.unavailable,
-                    );
-                  },
-                );
-
-            unawaited(
-              ad
-                  .show(
-                    onUserEarnedReward: (_, reward) {
-                      debugPrint(
-                        'Category unlock reward earned: '
-                        '${reward.amount} ${reward.type}',
-                      );
-                      earnedReward = true;
-                    },
-                  )
-                  .catchError((Object error, StackTrace stackTrace) {
-                    debugPrint(
-                      'Rewarded ad failed to show: $error\n$stackTrace',
-                    );
-                    ad.dispose();
-                    finish(
-                      earnedReward
-                          ? RewardedAdResult.earned
-                          : RewardedAdResult.unavailable,
-                    );
-                  }),
-            );
-          },
-          onAdFailedToLoad: (error) {
-            debugPrint('Rewarded ad failed to load: $error');
-            finish(RewardedAdResult.unavailable);
-          },
-        ),
-      );
-    } on PlatformException catch (error, stackTrace) {
-      debugPrint('Rewarded ad request failed: $error\n$stackTrace');
-      finish(RewardedAdResult.unavailable);
-    } on MissingPluginException catch (error, stackTrace) {
-      debugPrint('Rewarded ad plugin is unavailable: $error\n$stackTrace');
-      finish(RewardedAdResult.unavailable);
-    }
-
-    return completer.future;
   }
 }
 

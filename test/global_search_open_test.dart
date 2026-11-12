@@ -2,8 +2,6 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:learn_law/core/ads/ad_mob_service.dart';
-import 'package:learn_law/core/ads/category_unlock_store.dart';
 import 'package:learn_law/core/sync/app_database.dart';
 import 'package:learn_law/core/sync/connectivity_service.dart';
 import 'package:learn_law/core/sync/local_data_source.dart';
@@ -53,9 +51,7 @@ void main() {
     await database.close();
   });
 
-  testWidgets('unlocks a result category before opening the selected case', (
-    tester,
-  ) async {
+  testWidgets('opens a search result without any ad gate', (tester) async {
     final categoryId = await localDataSource.insertCategory(
       name: 'الدعاوى المدنية',
     );
@@ -68,13 +64,7 @@ void main() {
       title: 'قضية تجريبية',
     );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GlobalSearchScreen(
-          rewardedAdLoader: (_) async => RewardedAdResult.earned,
-        ),
-      ),
-    );
+    await tester.pumpWidget(const MaterialApp(home: GlobalSearchScreen()));
     await tester.enterText(find.byType(TextField), 'قضية تجريبية');
     await tester.pump(const Duration(milliseconds: 401));
     await tester.pumpAndSettle();
@@ -82,16 +72,11 @@ void main() {
     expect(searchResult, findsOneWidget);
 
     await tester.tap(searchResult);
-    await tester.pumpAndSettle();
-    expect(find.text('فتح الدعاوى المدنية'), findsOneWidget);
-    expect(find.byType(CaseRoadmapScreen), findsNothing);
-
-    await tester.tap(find.text('مشاهدة إعلان وفتح التصنيف 30 يومًا'));
     for (var frame = 0; frame < 5; frame++) {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    expect(await CategoryUnlockStore().isUnlocked(categoryId), isTrue);
+    expect(find.text('فتح الدعاوى المدنية'), findsNothing);
     expect(find.byType(CaseRoadmapScreen), findsOneWidget);
     expect(
       find.descendant(

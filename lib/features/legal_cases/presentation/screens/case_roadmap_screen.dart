@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/ads/category_access.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/sync_manager.dart';
@@ -44,15 +43,6 @@ class _CaseRoadmapScreenState extends State<CaseRoadmapScreen> {
 
   Future<void> _loadCaseSteps() async {
     if (!mounted) return;
-    final canOpen = await CategoryAccess.requestAccess(
-      context,
-      categoryId: widget.categoryId,
-      categoryName: widget.categoryName,
-    );
-    if (!canOpen || !mounted) {
-      if (mounted) Navigator.of(context).maybePop();
-      return;
-    }
 
     final cubit = context.read<LegalCubit>();
     await cubit.fetchCaseSteps(widget.legalCase.id);

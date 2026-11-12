@@ -327,12 +327,51 @@ User Messaging Platform (UMP) consent flow.
 
 The app-open ad is shown only during a cold start and the startup screen waits up
 to five seconds for it before continuing. A banner is shown at the bottom of the
-step and branch detail screens. The personal-status category stays free. Other
-categories can be opened by choosing to watch a Rewarded ad; AdMob must confirm
-the reward before that category is unlocked for 30 days. Declining or closing
-the ad does not block the free category. Unlock expiry is stored locally on the
-device and is not restored after app data is cleared or the app is reinstalled;
-cross-device restoration would require user accounts and server-side entitlements.
+step and branch detail screens, and an interstitial can appear every third
+navigation. **All content is free**: no category, case or step is locked behind
+an ad, a purchase or a timer, so the app does not contain unlockable content.
+
+### 7.1 Privacy policy and legal notice
+
+The in-app legal notice (`lib/core/app_info.dart`, opened from the footer of the
+home screen) states that the app is educational and not legal advice, and links
+the user to the privacy policy. The publishable privacy policy page lives at
+[`docs/privacy-policy.html`](docs/privacy-policy.html); host it (GitHub Pages,
+Netlify, Cloudflare Pages, …) and use the public URL in Play Console.
+
+The support address defaults to `esmailheba31@gmail.com` and can be overridden
+at build time with `--dart-define=SUPPORT_EMAIL=...`. It must match the Play
+Console contact email and the privacy policy page.
+
+### 7.2 Closed testing checklist (personal developer account)
+
+A personal Play Console account created after 13 Nov 2023 must run a closed test
+with **at least 12 testers opted in continuously for 14 days** before it can
+apply for production access. Recruit 15–16 testers so drop-outs do not reset the
+clock.
+
+Before uploading the first closed-testing build:
+
+1. **Signing** — create an upload keystore, add `android/key.properties` (never
+   commit it) and point `buildTypes.release` at it. The current build signs with
+   the debug key, which Play rejects.
+2. **AdMob** — replace the Google test app ID in `AndroidManifest.xml` and the
+   test unit IDs in `lib/core/ads/ad_mob_service.dart` with the real ones, and
+   complete the AdMob payment profile. Test ads must not ship to testers.
+3. **App content** — privacy policy URL, ads declaration (yes), app access
+   (see below), content rating questionnaire, target audience (18+), data safety
+   form (no data collected; AdMob advertising ID disclosed), news app = no,
+   government app = no, financial features = none.
+4. **Store listing** — title ≤ 30 characters, short and full description, app
+   icon 512×512, feature graphic 1024×500, at least 2 phone screenshots.
+5. **App access** — the admin area is hidden behind ten taps on the home title
+   and requires a Supabase account with `app_metadata.role = admin`. Provide the
+   reviewer with a dedicated review account (never the production admin) and the
+   exact steps: open the app → tap the title «دليل المحاماة» ten times → enter
+   the credentials. The review account must be able to sign in and open the
+   admin hub.
+6. **Build** — `flutter build appbundle --release` and upload the `.aab` to the
+   closed testing track, then add the testers' Gmail addresses.
 
 ### 8. (Optional) Regenerate launcher icons
 

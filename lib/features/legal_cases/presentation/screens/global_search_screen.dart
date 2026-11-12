@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/ads/ad_mob_service.dart';
-import '../../../../core/ads/category_access.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
@@ -13,9 +12,7 @@ import '../widgets/starry_background.dart';
 import 'case_roadmap_screen.dart';
 
 class GlobalSearchScreen extends StatefulWidget {
-  const GlobalSearchScreen({super.key, this.rewardedAdLoader});
-
-  final RewardedAdLoader? rewardedAdLoader;
+  const GlobalSearchScreen({super.key});
 
   @override
   State<GlobalSearchScreen> createState() => _GlobalSearchScreenState();
@@ -67,14 +64,6 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
     LocalLegalCaseSearchResult item,
     LegalCaseEntity legalCase,
   ) async {
-    final canOpen = await CategoryAccess.requestAccess(
-      context,
-      categoryId: item.categoryId,
-      categoryName: item.categoryName,
-      rewardedAdLoader: widget.rewardedAdLoader,
-    );
-    if (!canOpen || !mounted) return;
-
     await AdMobService.pushWithInterstitial(
       context,
       MaterialPageRoute(

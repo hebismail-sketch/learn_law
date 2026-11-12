@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/ads/category_access.dart';
 import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_backend.dart';
 import '../../../../core/app_info.dart';
@@ -36,8 +35,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   int _secretTapCount = 0;
   int _selectedTab = 0;
   Timer? _secretTapTimer;
-  final Set<String> _unlockedCategoryIds = {};
-  String? _categoryStatusSnapshot;
 
   @override
   void initState() {
@@ -133,23 +130,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Future<void> _openCategory(CategoryEntity category) async {
-    final canOpen = await CategoryAccess.requestAccess(
-      context,
-      categoryId: category.id,
-      categoryName: category.name,
-    );
-    if (!canOpen) {
-      if (mounted && _unlockedCategoryIds.remove(category.id)) {
-        setState(() {});
-      }
-      return;
-    }
-    if (!mounted) return;
-
-    if (!CategoryAccess.isAlwaysFree(category.name)) {
-      setState(() => _unlockedCategoryIds.add(category.id));
-    }
-
     unawaited(
       AdMobService.pushWithInterstitial(
         context,
@@ -223,12 +203,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
 
     if (!mounted) return;
-    final canOpen = await CategoryAccess.requestAccess(
-      context,
-      categoryId: resolvedCategoryId,
-      categoryName: resolvedCategoryName,
-    );
-    if (!canOpen || !mounted) return;
 
     unawaited(
       AdMobService.pushWithInterstitial(
@@ -317,7 +291,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Widget _buildContent(List<CategoryEntity> categories) {
-    _loadCategoryAccessStatuses(categories);
     final visibleCategories = _selectedTab == 0
         ? categories
         : categories
@@ -366,13 +339,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         index: categories.indexOf(visibleCategories[index]),
                         isFavorite: LegalCaseFavorites.instance
                             .containsCategory(visibleCategories[index].id),
-                        isLocked:
-                            !CategoryAccess.isAlwaysFree(
-                              visibleCategories[index].name,
-                            ) &&
-                            !_unlockedCategoryIds.contains(
-                              visibleCategories[index].id,
-                            ),
                         onTap: () => _openCategory(visibleCategories[index]),
                         onLongPress: () =>
                             _toggleFavorite(visibleCategories[index]),
@@ -423,31 +389,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         );
       },
     );
-  }
-
-  void _loadCategoryAccessStatuses(List<CategoryEntity> categories) {
-    final snapshot = categories
-        .map((category) => '${category.id}\u0001${category.name}')
-        .join('\u0000');
-    if (snapshot == _categoryStatusSnapshot) return;
-    _categoryStatusSnapshot = snapshot;
-
-    unawaited(() async {
-      final unlockedIds = <String>{};
-      for (final category in categories) {
-        if (CategoryAccess.isAlwaysFree(category.name)) continue;
-        if (await CategoryAccess.isUnlocked(category.id)) {
-          unlockedIds.add(category.id);
-        }
-      }
-
-      if (!mounted || snapshot != _categoryStatusSnapshot) return;
-      setState(() {
-        _unlockedCategoryIds
-          ..clear()
-          ..addAll(unlockedIds);
-      });
-    }());
   }
 }
 
@@ -1027,7 +968,6 @@ class _CategoryCard extends StatelessWidget {
     required this.category,
     required this.index,
     required this.isFavorite,
-    required this.isLocked,
     required this.onTap,
     required this.onLongPress,
   });
@@ -1035,7 +975,6 @@ class _CategoryCard extends StatelessWidget {
   final CategoryEntity category;
   final int index;
   final bool isFavorite;
-  final bool isLocked;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -1130,9 +1069,7 @@ class _CategoryCard extends StatelessWidget {
                             : const Color(0x332A3B5D),
                       ),
                       child: Icon(
-                        isLocked
-                            ? Icons.lock_outline_rounded
-                            : Icons.chevron_right_rounded,
+                        Icons.chevron_right_rounded,
                         color: isLight
                             ? const Color(0xFF53647D)
                             : const Color(0xFFD7E4F8),
