@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
+
+import '../../../../core/app_backend.dart';
 import '../../../../core/app_theme.dart';
+import '../../../../core/injection_container.dart';
 import 'admin_hub_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -11,7 +14,6 @@ class AdminLoginScreen extends StatefulWidget {
 }
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
-  final _supabase = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
 
   final _emailController = TextEditingController();
@@ -20,9 +22,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // Dedicated authorized admin email whitelist
-  static const String _authorizedAdminEmail = 'heba@gmail.com';
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -30,55 +29,42 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     super.dispose();
   }
 
-  // Authenticate admin using Supabase credentials with email whitelist verification
   Future<void> _handleAdminLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    // Enforce admin email authorization check
-    if (email.toLowerCase() != _authorizedAdminEmail.toLowerCase()) {
-      _showErrorSnackBar('هذا الحساب غير مصرح له بالدخول كمسؤول نهائياً');
-      return;
-    }
+    final password = _passwordController.text;
 
     setState(() => _isLoading = true);
 
     try {
-      // Sign in with email and password
-      final response = await _supabase.auth.signInWithPassword(
+      await sl<AppBackendRegistry>().signInAsAdmin(
+        environment: sl<AppBackendRegistry>().defaultEnvironment,
         email: email,
         password: password,
       );
 
-      // Verify that the authenticated user's email matches the authorized admin email
-      if (response.user != null) {
-        if (response.user!.email?.toLowerCase() !=
-            _authorizedAdminEmail.toLowerCase()) {
-          // Immediately sign out unauthorized users
-          await _supabase.auth.signOut();
-          if (mounted) {
-            _showErrorSnackBar('غير مصرح لك بالوصول إلى لوحة التحكم');
-          }
-          return;
-        }
-
-        if (mounted) {
-          // Navigate to AdminHubScreen and remove login screen from back stack
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminHubScreen()),
-          );
-        }
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminHubScreen()),
+        );
+      }
+    } on AdminAuthorizationException {
+      if (mounted) {
+        _showErrorSnackBar('هذا الحساب غير مخوّل بدور مسؤول في هذه البيئة');
       }
     } on AuthException catch (e) {
       if (mounted) {
         _showErrorSnackBar(e.message);
       }
+    } on StateError catch (e) {
+      if (mounted) {
+        _showErrorSnackBar(e.message.toString());
+      }
     } catch (e) {
       if (mounted) {
-        _showErrorSnackBar('حدث خطأ غير متوقع أثناء تسجيل الدخول');
+        _showErrorSnackBar('تعذّر تسجيل الدخول: $e');
       }
     } finally {
       if (mounted) {

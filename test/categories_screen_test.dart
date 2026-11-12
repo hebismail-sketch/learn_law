@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:learn_law/core/app_theme.dart';
+import 'package:learn_law/core/app_backend.dart';
 import 'package:learn_law/core/injection_container.dart';
+import 'package:learn_law/core/sync/app_database.dart';
+import 'package:learn_law/core/sync/connectivity_service.dart';
 import 'package:learn_law/core/sync/sync_manager.dart';
 import 'package:learn_law/core/sync/sync_types.dart';
 import 'package:learn_law/features/legal_cases/domain/entities/case_step_entity.dart';
@@ -20,6 +23,7 @@ import 'package:learn_law/features/legal_cases/presentation/screens/admin_login_
 import 'package:learn_law/features/legal_cases/presentation/state/legal_case_favorites.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:drift/native.dart';
 
 void main() {
   setUpAll(() async {
@@ -28,6 +32,19 @@ void main() {
       url: 'https://example.supabase.co',
       anonKey: 'test-anon-key',
     );
+    sl.registerSingleton(
+      AppBackendRegistry(
+        productionClient: Supabase.instance.client,
+        reviewClient: null,
+        connectivity: ConnectivityService(),
+        databaseFactory: (_) => AppDatabase.forTesting(NativeDatabase.memory()),
+      ),
+    );
+  });
+
+  tearDownAll(() async {
+    await sl<AppBackendRegistry>().dispose();
+    await sl.unregister<AppBackendRegistry>();
   });
 
   setUp(() async {

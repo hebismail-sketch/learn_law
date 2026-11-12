@@ -107,10 +107,17 @@ class SyncState extends Table {
 }
 
 @DriftDatabase(
-  tables: [Categories, Subcategories, LegalCases, CaseSteps, SyncQueue, SyncState],
+  tables: [
+    Categories,
+    Subcategories,
+    LegalCases,
+    CaseSteps,
+    SyncQueue,
+    SyncState,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'learn_law'));
+  AppDatabase({String name = 'learn_law'}) : super(driftDatabase(name: name));
 
   /// Used by tests to run against an in-memory database.
   AppDatabase.forTesting(super.executor);
@@ -120,11 +127,11 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        beforeOpen: (details) async {
-          // Required for the soft-delete `isNotNull` filters and for tables
-          // that are mutated from the UI thread.
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    beforeOpen: (details) async {
+      // Required for the soft-delete `isNotNull` filters and for tables
+      // that are mutated from the UI thread.
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
 }

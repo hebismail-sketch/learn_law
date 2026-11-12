@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/app_backend.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/legal_text.dart';
 import '../../../../core/sync/local_data_source.dart';
+import '../../../../core/sync/sync_types.dart';
+import '../bloc/legal_cubit.dart';
+import 'categories_screen.dart';
 import '../widgets/roadmap_editor.dart';
 import '../widgets/legal_text_input_formatter.dart';
 
@@ -20,6 +24,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   // screens work with no network exactly like the rest of the app.
   final LocalDataSource _local = sl<LocalDataSource>();
 
+  late final bool _isAuthorized;
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -39,9 +44,13 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchCategories();
-    // Add default initial step
-    _addStep();
+    _isAuthorized = sl<AppBackendRegistry>().currentUserIsAdmin;
+    if (_isAuthorized) {
+      _fetchCategories();
+      _addStep();
+    } else {
+      _isLoading = false;
+    }
   }
 
   @override
@@ -74,8 +83,16 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   // Fetch all existing categories from Supabase
   Future<void> _fetchCategories() async {
+    if (!_isAuthorized) return;
     setState(() => _isLoading = true);
     try {
+      final backend = sl<AppBackendRegistry>();
+      if (backend.activeEnvironment == AppBackendEnvironment.review) {
+        final sync = await backend.syncManager.sync();
+        if (sync.status != SyncStatus.success) {
+          throw StateError(sync.error ?? 'مزامنة بيئة المراجعة غير متاحة');
+        }
+      }
       final rows = await _local.getCategories();
       if (!mounted) return;
       setState(() {
@@ -128,6 +145,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   // Dialog to add a new category
   void _showAddCategoryDialog() {
+    if (!_isAuthorized) return;
     final nameController = TextEditingController();
     showDialog(
       context: context,
@@ -148,6 +166,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (!sl<AppBackendRegistry>().currentUserIsAdmin) return;
               final name = nameController.text.trim();
               if (name.isEmpty) return;
               Navigator.pop(context);
@@ -155,7 +174,14 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               setState(() => _isLoading = true);
               try {
                 final id = await _local.insertCategory(name: name);
-                _showSnackBar('تمت إضافة التصنيف بنجاح');
+                final synced = await _syncQueuedChanges();
+                if (!mounted) return;
+                _showSnackBar(
+                  synced
+                      ? 'تمت إضافة التصنيف بنجاح'
+                      : 'تم حفظ التصنيف على الجهاز، وستتم مزامنته عند عودة الاتصال.',
+                  isError: !synced,
+                );
                 await _fetchCategories();
                 if (!mounted) return;
                 setState(() {
@@ -163,6 +189,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                 });
                 _fetchSubcategories(id);
               } catch (e) {
+                if (!mounted) return;
                 setState(() => _isLoading = false);
                 _showSnackBar('فشل إضافة التصنيف: $e', isError: true);
               }
@@ -176,6 +203,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   // Dialog to add a new subcategory
   void _showAddSubcategoryDialog() {
+    if (!_isAuthorized) return;
     if (_selectedCategoryId == null) {
       _showSnackBar('يرجى اختيار تصنيف رئيسي أولاً', isError: true);
       return;
@@ -200,6 +228,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              if (!sl<AppBackendRegistry>().currentUserIsAdmin) return;
               final name = nameController.text.trim();
               if (name.isEmpty) return;
               Navigator.pop(context);
@@ -210,13 +239,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
                   categoryId: _selectedCategoryId!,
                   name: name,
                 );
-                _showSnackBar('تمت إضافة القسم الفرعي بنجاح');
+                final synced = await _syncQueuedChanges();
+                if (!mounted) return;
+                _showSnackBar(
+                  synced
+                      ? 'تمت إضافة القسم الفرعي بنجاح'
+                      : 'تم حفظ القسم على الجهاز، وستتم مزامنته عند عودة الاتصال.',
+                  isError: !synced,
+                );
                 await _fetchSubcategories(_selectedCategoryId!);
                 if (!mounted) return;
                 setState(() {
                   _selectedSubcategoryId = id;
                 });
               } catch (e) {
+                if (!mounted) return;
                 setState(() => _isLoading = false);
                 _showSnackBar('فشل إضافة القسم: $e', isError: true);
               }
@@ -230,6 +267,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   // Save the full case and all its roadmap steps
   Future<void> _saveFullCase() async {
+    if (!_isAuthorized || !sl<AppBackendRegistry>().currentUserIsAdmin) return;
     final title = stripLegalTextSymbols(_caseTitleController.text).trim();
     if (_selectedSubcategoryId == null) {
       _showSnackBar('يرجى تحديد القسم الفرعي التابع له القضية', isError: true);
@@ -298,8 +336,15 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         );
       }
 
+      final synced = await _syncQueuedChanges();
+      if (!mounted) return;
       setState(() => _isSaving = false);
-      _showSnackBar('تم حفظ ونشر القضية وكافة خطواتها بنجاح! 🎉');
+      _showSnackBar(
+        synced
+            ? 'تم حفظ ونشر القضية وكافة خطواتها بنجاح! 🎉'
+            : 'تم حفظ القضية على الجهاز، وستتم مزامنتها عند عودة الاتصال.',
+        isError: !synced,
+      );
 
       // Clear inputs safely
       _caseTitleController.clear();
@@ -336,10 +381,24 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     );
   }
 
+  Future<bool> _syncQueuedChanges() async {
+    final result = await sl<AppBackendRegistry>().syncManager.sync();
+    return result.status == SyncStatus.success;
+  }
+
   @override
   Widget build(BuildContext context) => rebuildWithAppTheme(_buildScreen);
 
   Widget _buildScreen(BuildContext context) {
+    if (!_isAuthorized || !sl<AppBackendRegistry>().currentUserIsAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('غير مصرح')),
+        body: const Center(
+          child: Text('هذا الحساب لا يملك صلاحية إدارة المحتوى.'),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -350,6 +409,21 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
         centerTitle: true,
         actions: [
           const ThemeToggleButton(),
+          IconButton(
+            icon: const Icon(Icons.folder_open_rounded),
+            tooltip: 'تصفح القضايا وتعديلها',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BlocProvider(
+                    create: (_) => sl<LegalCubit>()..fetchCategories(),
+                    child: const CategoriesScreen(),
+                  ),
+                ),
+              );
+            },
+          ),
           // Refresh legal app content cache button
           IconButton(
             icon: const Icon(Icons.sync_rounded),
@@ -366,11 +440,15 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
             icon: const Icon(Icons.logout_rounded),
             tooltip: 'تسجيل الخروج',
             onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
-              if (!context.mounted) return;
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context);
+              try {
+                await sl<AppBackendRegistry>()
+                    .signOutAndUseDefaultEnvironment();
+              } catch (error) {
+                _showSnackBar('تعذّر تسجيل الخروج: $error', isError: true);
+                return;
               }
+              if (!context.mounted) return;
+              Navigator.of(context).popUntil((route) => route.isFirst);
             },
           ),
         ],

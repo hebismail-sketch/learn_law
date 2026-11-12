@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/app_backend.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/legal_text.dart';
 import '../../../../core/sync/local_data_source.dart';
@@ -7,6 +8,7 @@ import '../../domain/entities/legal_case_entity.dart';
 import '../widgets/roadmap_editor.dart';
 import '../widgets/legal_text_input_formatter.dart';
 import '../../../../core/injection_container.dart';
+import '../../../../core/sync/sync_types.dart';
 
 class AdminEditCaseScreen extends StatefulWidget {
   final LegalCaseEntity legalCase;
@@ -27,6 +29,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  late final bool _isAuthorized;
   List<Map<String, dynamic>> _steps = [];
   // Structured branch inputs per step id, kept in sync with the dialog editor.
   final Map<String, List<BranchInputData>> _stepBranches = {};
@@ -44,13 +47,19 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   @override
   void initState() {
     super.initState();
+    _isAuthorized = sl<AppBackendRegistry>().currentUserIsAdmin;
     _titleController = TextEditingController(text: widget.legalCase.name);
     _descController = TextEditingController(
       text: widget.legalCase.description ?? '',
     );
     _subcategoryId = widget.legalCase.subcategoryId;
-    _fetchCaseSteps();
-    _fetchFolderPath();
+    if (_isAuthorized) {
+      _fetchCaseSteps();
+      _fetchFolderPath();
+    } else {
+      _isLoading = false;
+      _isFolderLoading = false;
+    }
   }
 
   // يجلب اسم القسم الفرعي والقسم الرئيسي الذي يقع تحته
@@ -89,7 +98,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     required String currentName,
     required bool isCategory,
   }) async {
-    if (id == null || _isFolderSaving) return;
+    if (!_canManage || id == null || _isFolderSaving) return;
     final controller = TextEditingController(text: currentName);
     final name = await showDialog<String>(
       context: context,
@@ -120,7 +129,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
       ),
     );
     controller.dispose();
-    if (name == null) return;
+    if (!_canManage || name == null) return;
     if (name.isEmpty) {
       _showSnackBar('الاسم الجديد فاضي', isError: true);
       return;
@@ -132,6 +141,8 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
           ? _local.updateCategory(id: id, name: name)
           : _local.updateSubcategory(id: id, name: name));
       if (!mounted) return;
+      final synced = await sl<AppBackendRegistry>().syncManager.sync();
+      if (!mounted) return;
       setState(() {
         if (isCategory) {
           _categoryName = name;
@@ -139,7 +150,12 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
           _subcategoryName = name;
         }
       });
-      _showSnackBar('تم تعديل اسم الفولدر بنجاح');
+      _showSnackBar(
+        synced.status == SyncStatus.success
+            ? 'تم تعديل اسم الفولدر بنجاح'
+            : 'تم حفظ التعديل على الجهاز، وستتم مزامنته عند عودة الاتصال.',
+        isError: synced.status != SyncStatus.success,
+      );
     } catch (e) {
       if (mounted) _showSnackBar('فشل تعديل الفولدر: $e', isError: true);
     } finally {
@@ -152,7 +168,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     required String name,
     required bool isCategory,
   }) async {
-    if (id == null || _isFolderSaving) return;
+    if (!_canManage || id == null || _isFolderSaving) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -194,7 +210,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (!_canManage || confirmed != true) return;
 
     setState(() => _isFolderSaving = true);
     try {
@@ -204,7 +220,14 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         await _deleteSubcategoryTree(id);
       }
       if (!mounted) return;
-      _showSnackBar('تم حذف «$name» وكل ما بداخله');
+      final synced = await sl<AppBackendRegistry>().syncManager.sync();
+      if (!mounted) return;
+      _showSnackBar(
+        synced.status == SyncStatus.success
+            ? 'تم حذف «$name» وكل ما بداخله'
+            : 'تم حفظ الحذف على الجهاز، وستتم مزامنته عند عودة الاتصال.',
+        isError: synced.status != SyncStatus.success,
+      );
       // ISSUE: القائمة التي فتحت هذه الشاشة تحتاج تحديثاً
       Navigator.pop(context, true);
     } catch (e) {
@@ -364,6 +387,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
 
   // Update case details and steps in Supabase
   Future<void> _saveChanges() async {
+    if (!_canManage) return;
     final title = stripLegalTextSymbols(_titleController.text).trim();
     if (title.isEmpty) {
       _showSnackBar('يرجى إدخال اسم القضية', isError: true);
@@ -461,12 +485,18 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         }
       }
 
+      final synced = await sl<AppBackendRegistry>().syncManager.sync();
+      if (!mounted) return;
       setState(() => _isSaving = false);
-      if (mounted) {
-        _showSnackBar('تم حفظ التعديلات بنجاح! 🎉');
-        Navigator.pop(context, true); // Return true to indicate change
-      }
+      _showSnackBar(
+        synced.status == SyncStatus.success
+            ? 'تم حفظ التعديلات بنجاح! 🎉'
+            : 'تم حفظ التعديلات على الجهاز، وستتم مزامنتها عند عودة الاتصال.',
+        isError: synced.status != SyncStatus.success,
+      );
+      Navigator.pop(context, true);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isSaving = false);
       _showSnackBar('حدث خطأ أثناء التعديل: $e', isError: true);
     }
@@ -646,10 +676,22 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     );
   }
 
+  bool get _canManage =>
+      _isAuthorized && sl<AppBackendRegistry>().currentUserIsAdmin;
+
   @override
   Widget build(BuildContext context) => rebuildWithAppTheme(_buildScreen);
 
   Widget _buildScreen(BuildContext context) {
+    if (!_canManage) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('غير مصرح')),
+        body: const Center(
+          child: Text('هذا الحساب لا يملك صلاحية إدارة المحتوى.'),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(

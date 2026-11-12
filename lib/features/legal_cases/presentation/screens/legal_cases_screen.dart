@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/ads/ad_mob_service.dart';
+import '../../../../core/app_backend.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
+import '../../../../core/sync/sync_types.dart';
 import '../../../../core/sync/sync_refresh_listener.dart';
 import '../../domain/entities/subcategory_entity.dart';
 import '../../domain/entities/legal_case_entity.dart';
@@ -29,8 +30,7 @@ class LegalCasesScreen extends StatelessWidget {
 
   // Check if current user is the authorized administrator
   bool _isAdmin() {
-    final user = Supabase.instance.client.auth.currentUser;
-    return user != null && user.email?.toLowerCase() == 'heba@gmail.com';
+    return sl<AppBackendRegistry>().currentUserIsAdmin;
   }
 
   // Delete case and all associated steps with confirmation dialog
@@ -38,6 +38,8 @@ class LegalCasesScreen extends StatelessWidget {
     BuildContext context,
     LegalCaseEntity legalCase,
   ) async {
+    if (!_isAdmin()) return;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -69,17 +71,23 @@ class LegalCasesScreen extends StatelessWidget {
       // Soft delete via the local database, which also soft deletes the steps
       // and queues one operation per row so other devices learn about it.
       await sl<LocalDataSource>().deleteLegalCase(id: legalCase.id);
+      final sync = await sl<AppBackendRegistry>().syncManager.sync();
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'تم حذف القضية بنجاح 🗑️',
-              textAlign: TextAlign.right,
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تم حفظ الحذف.')));
+        if (sync.status != SyncStatus.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'تم حفظ الحذف على الجهاز، وستتم مزامنته عند عودة الاتصال.',
+                textAlign: TextAlign.right,
+              ),
+              backgroundColor: Colors.orange,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        }
         // Refresh the legal cases list
         context.read<LegalCubit>().fetchLegalCases(subcategory.id);
       }

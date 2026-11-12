@@ -128,11 +128,13 @@ Everything below was verified against the source code.
 
 ### Admin / content management
 
-- **Hidden admin entry** — tapping the app title 5 times within 2 seconds opens the admin
+- **Hidden admin entry** — tapping the app title 10 times within 2 seconds opens the admin
   area (`categories_screen.dart` → `_handleSecretTap`).
-- **Supabase email/password login with an email whitelist** — non-whitelisted accounts are
-  rejected before the request, and are force-signed-out if they somehow authenticate
-  (`admin_login_screen.dart`).
+- **Supabase email/password login with a trusted `app_metadata.role` check** — an account
+  must have `role: admin` in server-managed app metadata; user-editable metadata is ignored.
+- **Separated review backend** — when review-project build values are supplied, review
+  logins use a different Supabase client and a different local SQLite database. Missing
+  review configuration leaves the production client and database as the app default.
 - **Admin hub** — create a legal case under any category/subcategory with a title,
   description and any number of steps (`admin_hub_screen.dart`).
 - **Roadmap editor** — build per-step branches by kind (acceptance / rejection / appeal /
@@ -185,9 +187,9 @@ Everything below was verified against the source code.
 - **Clean architecture layering** — `domain` (entities, repository interface, use cases),
   `data` (Supabase data source, models, repository implementation), `presentation`
   (cubit, screens, widgets). One feature module: `legal_cases`.
-- **`get_it` ^9.2.1** — service locator: `registerFactory` for the cubit,
-  `registerLazySingleton` for use cases, repository, data sources, database, connectivity
-  service and sync manager (`core/injection_container.dart`).
+- **`get_it` ^9.2.1** — service locator: factories resolve the active backend's cubit,
+  use cases, repository, local data source and sync manager; backend contexts retain
+  separate database/client instances (`core/injection_container.dart`).
 - **Flutter's built-in `ValueNotifier` / `ChangeNotifier`** — theme controller and the
   in-memory favorites store.
 
@@ -200,7 +202,8 @@ Everything below was verified against the source code.
 - **Drift (`drift` ^2.34.0` + `drift_flutter` ^0.3.0`)** — type-safe SQLite ORM. Local
   tables: `categories`, `subcategories`, `legal_cases`, `case_steps`, plus `sync_queue`
   (outbox) and `sync_state` (per-table watermarks). Code generation with `drift_dev` and
-  `build_runner`; database file named `learn_law`.
+  `build_runner`; production retains the `learn_law` database file, while review uses
+  `learn_law_review`.
 - **`sqlite3_flutter_libs` ^0.6.0`** — bundled SQLite native libraries for Android/iOS.
 - **`path_provider` ^2.1.5` / `path` ^1.9.1`** — database file location.
 - **`connectivity_plus` ^6.1.5`** — transport-level online/offline detection that triggers
@@ -259,31 +262,44 @@ dart run build_runner build --delete-conflicting-outputs
 
 ### 5. Configure Supabase
 
-1. In the Supabase dashboard, create (or reuse) the tables `categories`, `subcategories`,
-   `legal_cases` and `case_steps`.
-2. Open **SQL Editor → New query** and run the contents of
-   [`supabase_sync_migration.sql`](supabase_sync_migration.sql). The script is idempotent and:
-   - adds the `updated_at` and `deleted_at` columns to all four tables (and backfills them),
-   - installs `touch_updated_at()` triggers so `updated_at` is always current,
-   - indexes `updated_at` for fast incremental pulls.
-3. Create the admin account under **Authentication → Users** (email + password). The app
-   currently authorizes a single whitelisted admin email, defined in
-   `lib/features/legal_cases/presentation/screens/admin_login_screen.dart`
-   (`_authorizedAdminEmail`) and re-checked in `categories_screen.dart`. Change it there to
-   the account you created.
-4. Set the project credentials in `lib/main.dart`:
+The production app reads and synchronizes only `categories`, `subcategories`,
+`legal_cases`, and `case_steps`. Local `sync_queue` and `sync_state` are Drift tables
+on the device, not Supabase tables.
 
-   ```dart
-   await Supabase.initialize(
-     url: 'https://<YOUR-PROJECT-REF>.supabase.co',
-     anonKey: '<YOUR-PUBLISHABLE-ANON-KEY>',
-   );
-   ```
+Before deploying production access controls:
 
-   > **Security note:** the repository currently contains a live Supabase URL and publishable
-   > key hard-coded in `main.dart`. That key is safe to ship (it is a public anon key) **only
-   > if RLS is configured correctly**. Before publishing the app, rotate the key, and prefer
-   > injecting it via `--dart-define` rather than committing it.
+1. Back up the production database and confirm that the existing administrator already
+   has the server-managed `app_metadata.role = admin` claim. Never use `user_metadata`
+   for authorization.
+2. Review [`supabase_production_rls_migration.sql`](supabase_production_rls_migration.sql)
+   and run it manually in the production SQL Editor only after approval. It changes grants
+   and RLS policies on the four content tables, removes API-role access to sequences
+   associated with them, and removes `CREATE` on the `public` schema from API roles. It
+   does not alter rows or relationships. It aborts if a table is missing, an unexpected
+   policy exists, an API role can assume table ownership or a superuser/`BYPASSRLS` role,
+   effective grants remain too broad, or no existing admin role is present. It does not
+   create users or grant anyone an admin role.
+3. The migration permits public reads and restricts inserts and updates to authenticated
+   users whose JWT has `app_metadata.role = admin`. The app's delete action is a soft
+   delete (an update to `deleted_at`); hard DELETE and TRUNCATE are not granted, including
+   to admins. Normal user writes are denied by both SQL grants and RLS.
+4. Validate after deployment using the Supabase SQL Editor and app: anonymous reads work,
+   anonymous writes fail, a normal authenticated user cannot write, and the existing admin
+   can create, edit, and soft-delete content. Do not use the service-role key in the app.
+
+Do not grant the Google Play reviewer `app_metadata.role = admin` on production. This app
+currently gates its admin area on that role, so there is no production reviewer role with
+limited editing permissions. A reviewer account without the admin role can use public app
+features but cannot enter the admin area. Do not share production admin credentials; if
+Google requires access to admin-only features, resolve the review environment/access design
+before submitting.
+
+Build the Play bundle as a release build only after production policies and release signing
+have been separately verified:
+
+```powershell
+flutter build appbundle --release
+```
 
 ### 6. Run the app
 
@@ -306,6 +322,8 @@ in `android/app/src/main/AndroidManifest.xml` and
 `lib/core/ads/ad_mob_service.dart`. Keep these test IDs while developing; before
 releasing, replace them with the app ID and ad unit IDs from your AdMob account.
 Complete the AdMob payment profile before expecting live ads to serve.
+Before requesting ads in regions that require consent, integrate and test Google's
+User Messaging Platform (UMP) consent flow.
 
 The app-open ad is shown only during a cold start and the startup screen waits up
 to five seconds for it before continuing. A banner is shown at the bottom of the

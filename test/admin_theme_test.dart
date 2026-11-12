@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:learn_law/core/app_backend.dart';
 import 'package:learn_law/core/app_theme.dart';
+import 'package:learn_law/core/injection_container.dart';
+import 'package:learn_law/core/sync/app_database.dart';
+import 'package:learn_law/core/sync/connectivity_service.dart';
+import 'package:drift/native.dart';
 import 'package:learn_law/features/legal_cases/presentation/screens/admin_login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,10 +17,22 @@ void main() {
       url: 'https://example.supabase.co',
       anonKey: 'test-anon-key',
     );
+    sl.registerSingleton(
+      AppBackendRegistry(
+        productionClient: Supabase.instance.client,
+        reviewClient: null,
+        connectivity: ConnectivityService(),
+        databaseFactory: (_) => AppDatabase.forTesting(NativeDatabase.memory()),
+      ),
+    );
   });
 
   setUp(() => AppThemeController.isLight.value = false);
   tearDown(() => AppThemeController.isLight.value = false);
+  tearDownAll(() async {
+    await sl<AppBackendRegistry>().dispose();
+    await sl.unregister<AppBackendRegistry>();
+  });
 
   testWidgets('admin login page updates its background with the theme', (
     tester,

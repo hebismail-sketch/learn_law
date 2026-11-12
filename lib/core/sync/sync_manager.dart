@@ -24,6 +24,13 @@ class SyncResult {
   });
 }
 
+class _PushQueueResult {
+  const _PushQueueResult({required this.pushed, this.error});
+
+  final int pushed;
+  final Object? error;
+}
+
 /// Moves data between the local database and Supabase.
 ///
 /// The order matters: pending local writes are pushed first so that the pull
@@ -76,11 +83,20 @@ class SyncManager {
         return const SyncResult(status: SyncStatus.offline);
       }
 
-      final pushed = await _pushQueue();
+      final push = await _pushQueue();
       final pulled = await _pullChanges();
+      if (push.error != null) {
+        _emit(SyncStatus.failure);
+        return SyncResult(
+          pushed: push.pushed,
+          pulled: pulled,
+          status: SyncStatus.failure,
+          error: push.error.toString(),
+        );
+      }
       _emit(SyncStatus.success);
       return SyncResult(
-        pushed: pushed,
+        pushed: push.pushed,
         pulled: pulled,
         status: SyncStatus.success,
       );
@@ -93,7 +109,7 @@ class SyncManager {
   // ------------------------------- push -------------------------------
 
   /// Sends every queued operation and clears the ones the server accepted.
-  Future<int> _pushQueue() async {
+  Future<_PushQueueResult> _pushQueue() async {
     final pending = await (db.select(
       db.syncQueue,
     )..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
@@ -108,10 +124,10 @@ class SyncManager {
         pushed++;
       } catch (e) {
         await _recordFailure(op, e);
-        break; // preserve ordering: a later op may depend on this one
+        return _PushQueueResult(pushed: pushed, error: e);
       }
     }
-    return pushed;
+    return _PushQueueResult(pushed: pushed);
   }
 
   Future<void> _applyRemote(PendingOp op) async {
@@ -146,16 +162,30 @@ class SyncManager {
       case 'update':
         // The queue row already carries the id, so the update is keyed on it
         // rather than trusting a second copy inside the payload.
-        await table.update(payload).eq('id', op.rowId);
+        final updated = await table
+            .update(payload)
+            .eq('id', op.rowId)
+            .select('id');
+        if (updated.isEmpty) {
+          throw StateError(
+            'Update was not authorized or the row no longer exists.',
+          );
+        }
       case 'delete':
         // Soft delete on the server so other devices learn about the removal
         // instead of the row simply vanishing for them.
-        await table
+        final updated = await table
             .update(<String, dynamic>{
               'deleted_at': DateTime.now().toUtc().toIso8601String(),
               'updated_at': DateTime.now().toUtc().toIso8601String(),
             })
-            .eq('id', op.rowId);
+            .eq('id', op.rowId)
+            .select('id');
+        if (updated.isEmpty) {
+          throw StateError(
+            'Delete was not authorized or the row no longer exists.',
+          );
+        }
       default:
         throw ArgumentError('Unknown operation: ${op.operation}');
     }
