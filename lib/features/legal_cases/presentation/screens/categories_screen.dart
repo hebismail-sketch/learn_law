@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/ads/category_access.dart';
 import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_backend.dart';
+import '../../../../core/app_info.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
@@ -299,6 +300,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       },
                     ),
                   ),
+                ),
+                _LegalNoticeFooter(
+                  onTap: () => unawaited(openLegalNotice(context)),
                 ),
                 _BottomNavigationBar(
                   selectedIndex: _selectedTab,
@@ -1272,6 +1276,27 @@ class _EmptyCategories extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _LegalNoticeFooter extends StatelessWidget {
+  const _LegalNoticeFooter({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(top: 2, bottom: 2),
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+        child: const Text(
+          'إخلاء المسؤولية وسياسة الخصوصية',
+          style: TextStyle(fontSize: 11.5),
+        ),
       ),
     );
   }
