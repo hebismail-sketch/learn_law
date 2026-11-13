@@ -11,7 +11,11 @@ import 'sync/sync_manager.dart';
 
 enum AppBackendEnvironment { production, review }
 
-bool hasAdminRole(User? user) => user?.appMetadata['role'] == 'admin';
+Future<bool> hasAdminRole(User? user) async {
+  if (user == null) return false;
+  final refreshed = await Supabase.instance.client.auth.getUser();
+  return refreshed.user?.appMetadata['role'] == 'admin';
+}
 
 bool isPublishableSupabaseKey(String key) {
   if (key.startsWith('sb_publishable_')) return true;
@@ -117,7 +121,10 @@ class AppBackendRegistry {
   LocalDataSource get localDataSource => active.localDataSource;
   AppDatabase get database => active.database;
   SyncManager get syncManager => active.syncManager;
-  bool get currentUserIsAdmin => hasAdminRole(client.auth.currentUser);
+  Future<bool> get currentUserIsAdmin async {
+    final user = client.auth.currentUser;
+    return await hasAdminRole(user);
+  }
 
   AppBackendContext _contextFor(AppBackendEnvironment environment) {
     final context = _contexts[environment];
