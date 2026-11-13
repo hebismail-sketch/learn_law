@@ -55,9 +55,17 @@ void main() async {
       Error.throwWithStackTrace(error, stackTrace);
     }
   } else {
+    const supabaseUrl = String.fromEnvironment(
+      'SUPABASE_URL',
+      defaultValue: 'https://ptsfjeersiesgjtvcjkh.supabase.co',
+    );
+    const supabaseAnonKey = String.fromEnvironment(
+      'SUPABASE_ANON_KEY',
+      defaultValue: 'sb_publishable_XkB0rrhhqcw9A3xcJzc9Dg_5ZtCfy6O',
+    );
     await Supabase.initialize(
-      url: 'https://ptsfjeersiesgjtvcjkh.supabase.co',
-      anonKey: 'sb_publishable_XkB0rrhhqcw9A3xcJzc9Dg_5ZtCfy6O',
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
     );
     productionClient = Supabase.instance.client;
 

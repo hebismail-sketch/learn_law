@@ -24,7 +24,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   // screens work with no network exactly like the rest of the app.
   final LocalDataSource _local = sl<LocalDataSource>();
 
-  late final bool _isAuthorized;
+  bool _isAuthorized = false;
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -44,12 +44,19 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   @override
   void initState() {
     super.initState();
-    _isAuthorized = sl<AppBackendRegistry>().currentUserIsAdmin;
-    if (_isAuthorized) {
+    _checkAuthorization();
+  }
+
+  Future<void> _checkAuthorization() async {
+    final isAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    if (!mounted) return;
+    setState(() {
+      _isAuthorized = isAdmin;
+      _isLoading = false;
+    });
+    if (isAdmin) {
       _fetchCategories();
       _addStep();
-    } else {
-      _isLoading = false;
     }
   }
 
@@ -228,7 +235,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (!sl<AppBackendRegistry>().currentUserIsAdmin) return;
+              if (!await sl<AppBackendRegistry>().currentUserIsAdmin) return;
               final name = nameController.text.trim();
               if (name.isEmpty) return;
               Navigator.pop(context);
@@ -267,7 +274,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   // Save the full case and all its roadmap steps
   Future<void> _saveFullCase() async {
-    if (!_isAuthorized || !sl<AppBackendRegistry>().currentUserIsAdmin) return;
+    if (!_isAuthorized || !await sl<AppBackendRegistry>().currentUserIsAdmin) return;
     final title = stripLegalTextSymbols(_caseTitleController.text).trim();
     if (_selectedSubcategoryId == null) {
       _showSnackBar('يرجى تحديد القسم الفرعي التابع له القضية', isError: true);
@@ -390,7 +397,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   Widget build(BuildContext context) => rebuildWithAppTheme(_buildScreen);
 
   Widget _buildScreen(BuildContext context) {
-    if (!_isAuthorized || !sl<AppBackendRegistry>().currentUserIsAdmin) {
+    if (!_isAuthorized) {
       return Scaffold(
         appBar: AppBar(title: const Text('غير مصرح')),
         body: const Center(
