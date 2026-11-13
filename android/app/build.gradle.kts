@@ -16,19 +16,29 @@ android {
 
     defaultConfig {
         applicationId = "com.learnlaw.app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("upload") {
+            val keyPropertiesFile = rootProject.file("key.properties")
+            if (keyPropertiesFile.exists()) {
+                val properties = Properties()
+                properties.load(FileInputStream(keyPropertiesFile))
+                storeFile = file(properties.getProperty("storeFile", "upload-keystore.jks"))
+                storePassword = properties.getProperty("storePassword", "")
+                keyAlias = properties.getProperty("keyAlias", "")
+                keyPassword = properties.getProperty("keyPassword", "")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("upload")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
