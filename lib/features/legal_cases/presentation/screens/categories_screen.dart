@@ -63,7 +63,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Future<void> _openAdminGate() async {
-    final isAuthorizedAdmin = sl<AppBackendRegistry>().currentUserIsAdmin;
+    final isAuthorizedAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(

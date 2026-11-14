@@ -11,10 +11,23 @@ import 'sync/sync_manager.dart';
 
 enum AppBackendEnvironment { production, review }
 
+/// Reads the role from the app metadata of the signed-in user.
+///
+/// `app_metadata` is server-managed, so the role cannot be set by the user.
 Future<bool> hasAdminRole(User? user) async {
   if (user == null) return false;
-  final refreshed = await Supabase.instance.client.auth.getUser();
-  return refreshed.user?.appMetadata['role'] == 'admin';
+  return user.appMetadata['role'] == 'admin';
+}
+
+/// Re-reads the user from the server that owns [client] and checks the role.
+///
+/// The refresh has to go through the same client as the session, so it must
+/// never fall back to a global client instance.
+Future<bool> verifyAdminRole(SupabaseClient client) async {
+  final currentUser = client.auth.currentUser;
+  if (currentUser == null) return false;
+  final refreshed = await client.auth.getUser();
+  return hasAdminRole(refreshed.user);
 }
 
 bool isPublishableSupabaseKey(String key) {
@@ -121,10 +134,7 @@ class AppBackendRegistry {
   LocalDataSource get localDataSource => active.localDataSource;
   AppDatabase get database => active.database;
   SyncManager get syncManager => active.syncManager;
-  Future<bool> get currentUserIsAdmin async {
-    final user = client.auth.currentUser;
-    return await hasAdminRole(user);
-  }
+  Future<bool> get currentUserIsAdmin => verifyAdminRole(client);
 
   AppBackendContext _contextFor(AppBackendEnvironment environment) {
     final context = _contexts[environment];
@@ -156,11 +166,11 @@ class AppBackendRegistry {
     }
     final context = _contextFor(environment);
     await context.client.auth.signOut();
-    final response = await context.client.auth.signInWithPassword(
+    await context.client.auth.signInWithPassword(
       email: email,
       password: password,
     );
-    if (!hasAdminRole(response.user)) {
+    if (!await verifyAdminRole(context.client)) {
       await context.client.auth.signOut();
       throw const AdminAuthorizationException();
     }

@@ -18,7 +18,7 @@ import '../widgets/starry_background.dart';
 import 'case_roadmap_screen.dart';
 import 'admin_edit_case_screen.dart';
 
-class LegalCasesScreen extends StatelessWidget {
+class LegalCasesScreen extends StatefulWidget {
   final SubcategoryEntity subcategory;
   final String categoryName;
 
@@ -28,8 +28,30 @@ class LegalCasesScreen extends StatelessWidget {
     required this.categoryName,
   });
 
+  @override
+  State<LegalCasesScreen> createState() => _LegalCasesScreenState();
+}
+
+class _LegalCasesScreenState extends State<LegalCasesScreen> {
+  bool _isAdminUser = false;
+
+  SubcategoryEntity get subcategory => widget.subcategory;
+  String get categoryName => widget.categoryName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdminState();
+  }
+
   // Check if current user is the authorized administrator
-  bool _isAdmin() {
+  Future<void> _loadAdminState() async {
+    final isAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    if (!mounted) return;
+    setState(() => _isAdminUser = isAdmin);
+  }
+
+  Future<bool> _isAdmin() {
     return sl<AppBackendRegistry>().currentUserIsAdmin;
   }
 
@@ -38,7 +60,8 @@ class LegalCasesScreen extends StatelessWidget {
     BuildContext context,
     LegalCaseEntity legalCase,
   ) async {
-    if (!_isAdmin()) return;
+    if (!await _isAdmin()) return;
+    if (!context.mounted) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -108,8 +131,6 @@ class LegalCasesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAdminUser = _isAdmin();
-
     return rebuildWithAppTheme(
       (context) => Scaffold(
         backgroundColor: AppColors.background,
@@ -172,7 +193,7 @@ class LegalCasesScreen extends StatelessWidget {
                               icon: Icons.gavel_rounded,
                               actions: [
                                 LegalCaseFavoriteButton(legalCase: legalCase),
-                                if (isAdminUser) ...[
+                                if (_isAdminUser) ...[
                                   IconButton(
                                     icon: const Icon(
                                       Icons.delete_outline_rounded,

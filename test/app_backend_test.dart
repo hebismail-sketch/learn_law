@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  test('only trusted app_metadata grants the admin role', () {
+  test('only trusted app_metadata grants the admin role', () async {
     final admin = User.fromJson({
       'id': 'admin-user',
       'aud': 'authenticated',
@@ -26,9 +26,9 @@ void main() {
       'user_metadata': <String, dynamic>{'role': 'admin'},
     });
 
-    expect(hasAdminRole(admin), isTrue);
-    expect(hasAdminRole(userControlledRole), isFalse);
-    expect(hasAdminRole(null), isFalse);
+    expect(await hasAdminRole(admin), isTrue);
+    expect(await hasAdminRole(userControlledRole), isFalse);
+    expect(await hasAdminRole(null), isFalse);
   });
 
   test('review configuration rejects service-role keys', () {

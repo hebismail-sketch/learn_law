@@ -47,18 +47,26 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   @override
   void initState() {
     super.initState();
-    _isAuthorized = sl<AppBackendRegistry>().currentUserIsAdmin;
     _titleController = TextEditingController(text: widget.legalCase.name);
     _descController = TextEditingController(
       text: widget.legalCase.description ?? '',
     );
     _subcategoryId = widget.legalCase.subcategoryId;
-    if (_isAuthorized) {
+    _checkAuthorization();
+  }
+
+  Future<void> _checkAuthorization() async {
+    final isAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    if (!mounted) return;
+    setState(() => _isAuthorized = isAdmin);
+    if (isAdmin) {
       _fetchCaseSteps();
       _fetchFolderPath();
     } else {
-      _isLoading = false;
-      _isFolderLoading = false;
+      setState(() {
+        _isLoading = false;
+        _isFolderLoading = false;
+      });
     }
   }
 
@@ -676,8 +684,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     );
   }
 
-  bool get _canManage =>
-      _isAuthorized && sl<AppBackendRegistry>().currentUserIsAdmin;
+  bool get _canManage => _isAuthorized;
 
   @override
   Widget build(BuildContext context) => rebuildWithAppTheme(_buildScreen);

@@ -173,9 +173,10 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (!sl<AppBackendRegistry>().currentUserIsAdmin) return;
+              if (!await sl<AppBackendRegistry>().currentUserIsAdmin) return;
               final name = nameController.text.trim();
               if (name.isEmpty) return;
+              if (!context.mounted) return;
               Navigator.pop(context);
 
               setState(() => _isLoading = true);
@@ -238,6 +239,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               if (!await sl<AppBackendRegistry>().currentUserIsAdmin) return;
               final name = nameController.text.trim();
               if (name.isEmpty) return;
+              if (!context.mounted) return;
               Navigator.pop(context);
 
               setState(() => _isLoading = true);
@@ -274,7 +276,8 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
 
   // Save the full case and all its roadmap steps
   Future<void> _saveFullCase() async {
-    if (!_isAuthorized || !await sl<AppBackendRegistry>().currentUserIsAdmin) return;
+    if (!_isAuthorized) return;
+    if (!await sl<AppBackendRegistry>().currentUserIsAdmin) return;
     final title = stripLegalTextSymbols(_caseTitleController.text).trim();
     if (_selectedSubcategoryId == null) {
       _showSnackBar('يرجى تحديد القسم الفرعي التابع له القضية', isError: true);
