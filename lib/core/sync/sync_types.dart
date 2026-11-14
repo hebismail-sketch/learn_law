@@ -23,11 +23,7 @@ enum SyncStatus {
 }
 
 /// The kind of mutation a queued entry represents.
-enum SyncOperation {
-  insert,
-  update,
-  delete,
-}
+enum SyncOperation { insert, update, delete }
 
 /// Maps a Drift table name to the Supabase table it mirrors.
 ///
@@ -42,10 +38,5 @@ class SyncTables {
   static const caseSteps = 'case_steps';
 
   /// Every mirrored table, in dependency order (parents before children).
-  static const all = <String>[
-    categories,
-    subcategories,
-    legalCases,
-    caseSteps,
-  ];
+  static const all = <String>[categories, subcategories, legalCases, caseSteps];
 }

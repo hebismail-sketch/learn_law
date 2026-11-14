@@ -14,9 +14,9 @@ const supportEmail = String.fromEnvironment(
 
 /// Opens the legal notice / disclaimer screen.
 Future<void> openLegalNotice(BuildContext context) {
-  return Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const LegalNoticeScreen()),
-  );
+  return Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const LegalNoticeScreen()));
 }
 
 /// Explains what the app is, that it is not legal advice, and how to reach the

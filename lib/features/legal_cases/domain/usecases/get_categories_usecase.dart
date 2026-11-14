@@ -1,7 +1,6 @@
 import '../repositories/legal_repository.dart';
 import '../entities/category_entity.dart';
 
-
 class GetCategoriesUseCase {
   final LegalRepository repository;
 

@@ -15,9 +15,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: BranchDetailScreen(branch: branch),
-      ),
+      MaterialApp(home: BranchDetailScreen(branch: branch)),
     );
 
     expect(find.text('تفاصيل المسار'), findsOneWidget);

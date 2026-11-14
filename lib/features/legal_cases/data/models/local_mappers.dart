@@ -14,26 +14,20 @@ import 'case_step_model.dart';
 ///
 /// The domain layer must not know about SQLite, so the translation stops here
 /// at the data layer boundary.
-CategoryEntity categoryToEntity(LocalCategory row) => CategoryEntity(
-      id: row.id,
-      name: row.name,
-      description: row.description,
-    );
+CategoryEntity categoryToEntity(LocalCategory row) =>
+    CategoryEntity(id: row.id, name: row.name, description: row.description);
 
-SubcategoryEntity subcategoryToEntity(LocalSubcategory row) => SubcategoryEntity(
-      id: row.id,
-      categoryId: row.categoryId,
-      name: row.name,
-    );
+SubcategoryEntity subcategoryToEntity(LocalSubcategory row) =>
+    SubcategoryEntity(id: row.id, categoryId: row.categoryId, name: row.name);
 
 LegalCaseEntity legalCaseToEntity(LocalLegalCase row) => LegalCaseEntity(
-      id: row.id,
-      subcategoryId: row.subcategoryId,
-      // The local column is `title`, matching Supabase. The entity calls it
-      // `name`, so the rename belongs here and not in the entity.
-      name: row.title,
-      description: row.description,
-    );
+  id: row.id,
+  subcategoryId: row.subcategoryId,
+  // The local column is `title`, matching Supabase. The entity calls it
+  // `name`, so the rename belongs here and not in the entity.
+  name: row.title,
+  description: row.description,
+);
 
 CaseStepEntity caseStepToEntity(LocalCaseStep row) {
   // The branch payload travels inside short_description as a

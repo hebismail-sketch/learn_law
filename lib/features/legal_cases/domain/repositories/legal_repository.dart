@@ -3,9 +3,6 @@ import 'package:learn_law/features/legal_cases/domain/entities/category_entity.d
 import 'package:learn_law/features/legal_cases/domain/entities/legal_case_entity.dart';
 import 'package:learn_law/features/legal_cases/domain/entities/subcategory_entity.dart';
 
-
-
-
 abstract class LegalRepository {
   Future<List<CategoryEntity>> getCategories();
   Future<List<SubcategoryEntity>> getSubcategories(String categoryId);

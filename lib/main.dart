@@ -63,10 +63,7 @@ void main() async {
       'SUPABASE_ANON_KEY',
       defaultValue: 'sb_publishable_XkB0rrhhqcw9A3xcJzc9Dg_5ZtCfy6O',
     );
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
+    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
     productionClient = Supabase.instance.client;
 
     if (reviewUrl.isNotEmpty && reviewKey.isNotEmpty) {

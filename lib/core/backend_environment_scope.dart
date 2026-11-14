@@ -16,10 +16,8 @@ class BackendEnvironmentScope extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AppBackendEnvironment>(
       valueListenable: backend.environmentListenable,
-      builder: (context, environment, _) => KeyedSubtree(
-        key: ValueKey(environment),
-        child: builder(context),
-      ),
+      builder: (context, environment, _) =>
+          KeyedSubtree(key: ValueKey(environment), child: builder(context)),
     );
   }
 }

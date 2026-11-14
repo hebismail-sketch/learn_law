@@ -16,8 +16,9 @@ class LegalThemeArtwork extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: AppThemeController.isLight,
-      builder: (context, isLight, _) =>
-          isLight ? ColorFiltered(colorFilter: lightFilter, child: child) : child,
+      builder: (context, isLight, _) => isLight
+          ? ColorFiltered(colorFilter: lightFilter, child: child)
+          : child,
     );
   }
 }

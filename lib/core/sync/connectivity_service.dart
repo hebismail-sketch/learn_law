@@ -14,7 +14,7 @@ class ConnectivityService {
   final Connectivity _connectivity;
 
   ConnectivityService({Connectivity? connectivity})
-      : _connectivity = connectivity ?? Connectivity();
+    : _connectivity = connectivity ?? Connectivity();
 
   /// Current transport state, without waiting for an update event.
   Future<bool> get isOnline async {
