@@ -5,7 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../app_backend.dart';
 import '../app_theme.dart';
+import '../injection_container.dart';
+import '../sync/local_data_source.dart';
+import '../sync/sync_manager.dart';
+import '../sync/sync_types.dart';
 
 abstract final class AdMobService {
   // Google sample ad units keep requests in test mode until launch.
@@ -222,6 +227,7 @@ class AppOpenAdStartupGate extends StatefulWidget {
 
 class _AppOpenAdStartupGateState extends State<AppOpenAdStartupGate> {
   bool _isReady = false;
+  String _statusMessage = 'جارٍ فتح التطبيق...';
 
   @override
   void initState() {
@@ -229,8 +235,40 @@ class _AppOpenAdStartupGateState extends State<AppOpenAdStartupGate> {
     unawaited(_showStartupAd());
   }
 
+  Future<bool> _hasLocalData() async {
+    try {
+      if (sl.isRegistered<LocalDataSource>()) {
+        final categories = await sl<LocalDataSource>().getCategories();
+        return categories.isNotEmpty;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   Future<void> _showStartupAd() async {
     try {
+      final hasData = await _hasLocalData();
+      if (!hasData) {
+        if (mounted) {
+          setState(() {
+            _statusMessage = 'جارٍ إعداد وتجهيز جميع القضايا لأول مرة...';
+          });
+        }
+        if (sl.isRegistered<AppBackendRegistry>()) {
+          final backend = sl<AppBackendRegistry>();
+          await backend.syncManager.sync().timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              debugPrint('Initial sync timed out; proceeding with local data.');
+              return const SyncResult(
+                status: SyncStatus.failure,
+                error: 'timeout',
+              );
+            },
+          );
+        }
+      }
+
       await (widget.startupAdLoader?.call() ??
               AdMobService.showStartupAppOpenAd())
           .timeout(
@@ -241,7 +279,7 @@ class _AppOpenAdStartupGateState extends State<AppOpenAdStartupGate> {
           );
     } catch (error, stackTrace) {
       debugPrint(
-        'Startup ad failed; continuing without blocking: $error\n$stackTrace',
+        'Startup ad/sync failed; continuing without blocking: $error\n$stackTrace',
       );
     } finally {
       if (mounted) setState(() => _isReady = true);
@@ -260,8 +298,9 @@ class _AppOpenAdStartupGateState extends State<AppOpenAdStartupGate> {
             const CircularProgressIndicator(color: Color(0xFF38BDF8)),
             const SizedBox(height: 16),
             Text(
-              'جارٍ فتح التطبيق...',
-              style: TextStyle(color: AppColors.textSecondary),
+              _statusMessage,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
           ],
         ),
