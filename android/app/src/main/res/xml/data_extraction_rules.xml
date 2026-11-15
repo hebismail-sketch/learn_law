@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31) backup and device-transfer rules.
+
+  Two different things are configured here:
+
+  * <cloud-backup> controls the Google Drive backup. The reader's local content
+    cache is excluded: it is a copy of public content plus favourite ids, it is
+    rebuilt by one sync, and it must never travel to another device.
+
+  * <device-transfer> controls the direct phone-to-phone move (Smart Switch and
+    the Android "copy apps" flow). The Supabase session lives in the platform
+    KeyStore-backed store, whose keys cannot leave the device, so exporting the
+    record would only carry an unusable token — and, worse, a logout that never
+    reaches the next device. It is excluded too. The user simply signs in again,
+    which is exactly what the session model expects.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="flutter_secure_storage" />
+        <exclude domain="file" path="FlutterSecureKeyStorage" />
+        <exclude domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="flutter_secure_storage" />
+        <exclude domain="file" path="FlutterSecureKeyStorage" />
+        <exclude domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>

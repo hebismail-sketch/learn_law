@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'sync/admin_guard.dart';
 import 'sync/app_database.dart';
 import 'sync/connectivity_service.dart';
 import 'sync/local_data_source.dart';
@@ -14,6 +15,8 @@ enum AppBackendEnvironment { production, review }
 /// Reads the role from the app metadata of the signed-in user.
 ///
 /// `app_metadata` is server-managed, so the role cannot be set by the user.
+/// This only inspects a [User] that Auth already returned; use
+/// [verifyAdminRole] when the answer has to be current.
 Future<bool> hasAdminRole(User? user) async {
   if (user == null) return false;
   return user.appMetadata['role'] == 'admin';
@@ -23,11 +26,8 @@ Future<bool> hasAdminRole(User? user) async {
 ///
 /// The refresh has to go through the same client as the session, so it must
 /// never fall back to a global client instance.
-Future<bool> verifyAdminRole(SupabaseClient client) async {
-  final currentUser = client.auth.currentUser;
-  if (currentUser == null) return false;
-  final refreshed = await client.auth.getUser();
-  return hasAdminRole(refreshed.user);
+Future<bool> verifyAdminRole(SupabaseClient client) {
+  return AdminGuard.verify(client);
 }
 
 bool isPublishableSupabaseKey(String key) {
@@ -59,12 +59,23 @@ class AppBackendContext {
     required ConnectivityService connectivity,
     required AppDatabase Function(String name) databaseFactory,
   }) : database = databaseFactory(databaseName) {
-    localDataSource = LocalDataSourceImpl(database);
+    localDataSource = LocalDataSourceImpl(
+      database,
+      queuedActorId: _signedInUserId(client),
+    );
     syncManager = SyncManager(
       db: database,
       supabase: client,
       connectivity: connectivity,
     );
+  }
+
+  static String? _signedInUserId(SupabaseClient client) {
+    try {
+      return client.auth.currentUser?.id;
+    } on AuthException {
+      return null;
+    }
   }
 
   final SupabaseClient client;
@@ -129,12 +140,24 @@ class AppBackendRegistry {
   bool get hasReviewBackend =>
       _contexts.containsKey(AppBackendEnvironment.review);
 
+  /// True when the active environment holds a real signed-in session.
+  bool get hasSignedInSession =>
+      AppBackendContext._signedInUserId(active.client) != null;
+
   AppBackendContext get active => _contextFor(activeEnvironment);
   SupabaseClient get client => active.client;
   LocalDataSource get localDataSource => active.localDataSource;
   AppDatabase get database => active.database;
   SyncManager get syncManager => active.syncManager;
+
+  /// Server-checked admin answer. Writes and edit screens use this one.
   Future<bool> get currentUserIsAdmin => verifyAdminRole(client);
+
+  /// The same question for UI decisions that must also work on a cold start
+  /// without network. Falls back to the restored session's metadata only when
+  /// the server cannot be reached.
+  Future<bool> get adminAccessAllowed =>
+      AdminGuard.verifyAllowingOffline(client);
 
   AppBackendContext _contextFor(AppBackendEnvironment environment) {
     final context = _contexts[environment];
@@ -174,11 +197,28 @@ class AppBackendRegistry {
       await context.client.auth.signOut();
       throw const AdminAuthorizationException();
     }
+    // From here on, anything this session queues carries its user id, so a
+    // later sign-in by a different account cannot push it.
+    await context.localDataSource.markQueuedActor(
+      AppBackendContext._signedInUserId(context.client),
+    );
     await activate(environment);
   }
 
+  /// Ends the current session.
+  ///
+  /// The outbox is flushed while the session is still valid — writes that
+  /// needed an admin are impossible after this point — and whatever is left
+  /// loses its owner, so the next account on this device starts empty.
+  Future<void> signOut() async {
+    final context = active;
+    await context.syncManager.flushPendingOperations();
+    await context.localDataSource.markQueuedActor(null);
+    await context.client.auth.signOut();
+  }
+
   Future<void> signOutAndUseDefaultEnvironment() async {
-    await active.client.auth.signOut();
+    await signOut();
     await activate(defaultEnvironment);
   }
 

@@ -3,8 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../../../../core/app_backend.dart';
 import '../../../../core/app_theme.dart';
+import '../../../../core/auth_error_text.dart';
 import '../../../../core/injection_container.dart';
 import 'admin_hub_screen.dart';
+import 'categories_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -38,39 +40,62 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await sl<AppBackendRegistry>().signInAsAdmin(
-        environment: sl<AppBackendRegistry>().defaultEnvironment,
+      final backend = sl<AppBackendRegistry>();
+      await backend.signInAsAdmin(
+        environment: backend.defaultEnvironment,
         email: email,
         password: password,
       );
 
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminHubScreen()),
-        );
-      }
+      if (!mounted) return;
+      // The back stack may hold reader screens; replace it so pressing back
+      // from the hub never lands on a page whose admin menu is now open.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AdminHubScreen()),
+        (route) => route.isFirst,
+      );
     } on AdminAuthorizationException {
       if (mounted) {
         _showErrorSnackBar('هذا الحساب غير مخوّل بدور مسؤول في هذه البيئة');
       }
     } on AuthException catch (e) {
       if (mounted) {
-        _showErrorSnackBar(e.message);
+        _showErrorSnackBar(AuthErrorText.forException(e));
       }
-    } on StateError catch (e) {
+    } on StateError {
       if (mounted) {
-        _showErrorSnackBar(e.message.toString());
+        _showErrorSnackBar('تسجيل الدخول غير متاح في هذه النسخة.');
       }
-    } catch (e) {
+    } catch (_) {
+      // Never render the raw exception: it can contain endpoint details.
       if (mounted) {
-        _showErrorSnackBar('تعذّر تسجيل الدخول: $e');
+        _showErrorSnackBar(
+          'تعذّر تسجيل الدخول. تحقّق من الاتصال وحاول مجددًا.',
+        );
       }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _handleSignOut() async {
+    setState(() => _isLoading = true);
+    try {
+      await sl<AppBackendRegistry>().signOut();
+    } catch (_) {
+      // Signing out must never block the user; the local session is already
+      // gone once Supabase drops it, and a retry can only be attempted after
+      // the network returns anyway.
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const CategoriesScreen()),
+      (route) => false,
+    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -98,7 +123,16 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
-        actions: const [ThemeToggleButton()],
+        actions: [
+          const ThemeToggleButton(),
+          IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: 'العودة إلى المحتوى',
+            onPressed: _isLoading
+                ? null
+                : () => Navigator.of(context).maybePop(),
+          ),
+        ],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -215,6 +249,17 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                           },
                         ),
                         const SizedBox(height: 24),
+
+                        // Every attempt starts from a clean session: a stale
+                        // token from an earlier sign-in must never be reused.
+                        TextButton.icon(
+                          onPressed: _isLoading ? null : _handleSignOut,
+                          icon: const Icon(Icons.link_off_rounded, size: 18),
+                          label: const Text(
+                            'إلغاء الجلسة الحالية والعودة للمحتوى',
+                          ),
+                        ),
+                        const SizedBox(height: 8),
 
                         // Login Action Button
                         ElevatedButton(

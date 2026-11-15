@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_backend.dart';
@@ -24,6 +25,23 @@ import '../widgets/legal_case_favorite_button.dart';
 import '../widgets/legal_theme_artwork.dart';
 import '../widgets/roadmap_list_tile.dart';
 
+/// Replaces the whole stack with a fresh home screen.
+///
+/// Used after an admin signs out or backs out of the admin area, so the reader
+/// home they return to is rebuilt with a new cubit and without any of the
+/// editor's screens underneath it.
+void pushCategoriesHome(BuildContext context) {
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute<void>(
+      builder: (_) => BlocProvider<LegalCubit>(
+        create: (_) => sl<LegalCubit>()..fetchCategories(),
+        child: const CategoriesScreen(),
+      ),
+    ),
+    (route) => false,
+  );
+}
+
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
 
@@ -40,6 +58,35 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void initState() {
     super.initState();
     context.read<LegalCubit>().fetchCategories();
+  }
+
+  /// Asks for the account's password again before opening the editor.
+  ///
+  /// A session left signed in on a shared phone is otherwise enough to open
+  /// the admin area. The password re-entry is local only: it is verified by
+  /// Supabase against the same account, and the result is still subject to the
+  /// server-side role check and RLS policies.
+  Future<bool> _confirmAdminIdentity() async {
+    final backend = sl<AppBackendRegistry>();
+    if (!backend.hasSignedInSession) return false;
+    final email = backend.client.auth.currentUser?.email;
+    if (email == null || email.isEmpty) return false;
+
+    final password = await showDialog<String>(
+      context: context,
+      builder: (_) => _AdminReauthDialog(email: email),
+    );
+    if (password == null || password.isEmpty) return false;
+
+    try {
+      final result = await backend.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      return result.session != null;
+    } on AuthException {
+      return false;
+    }
   }
 
   @override
@@ -63,7 +110,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Future<void> _openAdminGate() async {
-    final isAuthorizedAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    // Asked asynchronously on purpose: the answer comes from the server, and
+    // the editor is only opened for the account the RLS policies accept.
+    final backend = sl<AppBackendRegistry>();
+    final isAuthorizedAdmin = await backend.adminAccessAllowed;
+    if (!mounted) return;
+    if (isAuthorizedAdmin && !await _confirmAdminIdentity()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم إلغاء الدخول إلى لوحة الإدارة.',
+            textAlign: TextAlign.right,
+          ),
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     await Navigator.push(
       context,
@@ -1338,6 +1401,73 @@ class _NavigationItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Asks the signed-in editor to re-enter the account password.
+///
+/// Returns the password, or null when the dialog is dismissed. Nothing is
+/// stored: the caller hands it straight to Supabase and drops it.
+class _AdminReauthDialog extends StatefulWidget {
+  const _AdminReauthDialog({required this.email});
+
+  final String email;
+
+  @override
+  State<_AdminReauthDialog> createState() => _AdminReauthDialogState();
+}
+
+class _AdminReauthDialogState extends State<_AdminReauthDialog> {
+  final _controller = TextEditingController();
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('تأكيد الهوية', textAlign: TextAlign.right),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'أدخل كلمة مرور الحساب (${widget.email}) لمتابعة الدخول إلى لوحة الإدارة.',
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 13.5),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            obscureText: _obscure,
+            autofocus: true,
+            textDirection: TextDirection.ltr,
+            decoration: InputDecoration(
+              labelText: 'كلمة المرور',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+            onSubmitted: (value) => Navigator.of(context).pop(value),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('إلغاء'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('متابعة'),
+        ),
+      ],
     );
   }
 }

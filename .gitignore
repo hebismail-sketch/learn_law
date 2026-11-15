@@ -77,3 +77,20 @@ android/.gradle/
 /scripts/push_talaq.ps1
 /scripts/qa.mjs
 /scripts/serve.mjs
+
+# Signing material and anything derived from it. Never committed.
+/android/key.properties
+/android/**/*.jks
+/android/**/*.keystore
+*.jks
+*.keystore
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Encrypted keystore backups
+*.enc
+*.enc.sha256
+learnlaw-upload-key-*

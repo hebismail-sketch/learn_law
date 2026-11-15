@@ -38,15 +38,27 @@ class _LegalCasesScreenState extends State<LegalCasesScreen> {
   SubcategoryEntity get subcategory => widget.subcategory;
   String get categoryName => widget.categoryName;
 
+  /// The admin menu is a per-session decision, so it is re-checked whenever
+  /// the app comes back to this screen: a session can expire or be revoked
+  /// while the phone sits in the background.
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _loadAdminState);
     _loadAdminState();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   // Check if current user is the authorized administrator
   Future<void> _loadAdminState() async {
-    final isAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    final isAdmin = await sl<AppBackendRegistry>().adminAccessAllowed;
     if (!mounted) return;
     setState(() => _isAdminUser = isAdmin);
   }
@@ -119,7 +131,7 @@ class _LegalCasesScreenState extends State<LegalCasesScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'حدث خطأ أثناء الحذف: $e',
+              'حدث خطأ أثناء الحذف. حاول مجددًا.',
               textAlign: TextAlign.right,
             ),
             backgroundColor: Colors.red,

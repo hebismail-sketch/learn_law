@@ -6,7 +6,10 @@
     <application
         android:label="مِراس | تدريب المحامي"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <!-- Google's sample app ID keeps the closed-test build on test inventory. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"

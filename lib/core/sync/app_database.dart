@@ -84,6 +84,14 @@ class SyncQueue extends Table {
 
   DateTimeColumn get createdAt => dateTime()();
 
+  /// Supabase user id of the account that queued this operation.
+  ///
+  /// Null for rows written while signed out. The sync worker only pushes an
+  /// operation under the session that wrote it, so handing the phone to a
+  /// different account cannot replay one account's admin edits onto another
+  /// account's session.
+  TextColumn get actorId => text().nullable()();
+
   /// Number of failed push attempts, used for backoff and error reporting.
   IntColumn get attempts => integer().withDefault(const Constant(0))();
 
@@ -122,12 +130,21 @@ class AppDatabase extends _$AppDatabase {
   /// Used by tests to run against an in-memory database.
   AppDatabase.forTesting(super.executor);
 
+  /// Bumped to 2 when [SyncQueue] gained `actor_id`.
+  ///
+  /// The added column is nullable, so the step-up only has to add it; every
+  /// existing queued row keeps working and is simply treated as ownerless.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(syncQueue, syncQueue.actorId);
+      }
+    },
     beforeOpen: (details) async {
       // Required for the soft-delete `isNotNull` filters and for tables
       // that are mutated from the UI thread.

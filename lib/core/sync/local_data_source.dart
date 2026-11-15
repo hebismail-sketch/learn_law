@@ -34,6 +34,21 @@ class LocalLegalCaseSearchResult {
 ///   1. change the local row, so the user sees their edit immediately
 ///   2. append the same change to [SyncQueue], so it is pushed later
 abstract class LocalDataSource {
+  /// Stamps every operation that is still waiting to be pushed with [value].
+  ///
+  /// The app has no accounts for readers, but an editor does sign in and a
+  /// phone can later be handed to someone else. Operations record which
+  /// account wrote them so one editor's unpublished work is never pushed
+  /// under another account's session — and so a role change can empty the
+  /// outbox of the account it applied to.
+  Future<void> markQueuedActor(String? value);
+
+  /// Drops queued operations written by the account in [actorIds].
+  ///
+  /// Used when a role change means what was queued can no longer be
+  /// authorized. The rows themselves are untouched.
+  Future<int> discardQueuedOperationsFor(Set<String> actorIds);
+
   Future<List<LocalCategory>> getCategories();
 
   Future<String> insertCategory({required String name, String? description});
@@ -109,13 +124,69 @@ class LocalDataSourceImpl implements LocalDataSource {
   final AppDatabase db;
   final _uuid = const Uuid();
 
-  LocalDataSourceImpl(this.db);
+  /// The account that owns the writes this instance queues.
+  ///
+  /// Null means no account: the editor is signed out, or this is a reader
+  /// device. A null owner still queues locally so nothing is lost while the
+  /// phone is offline, but the sync worker refuses to push those rows.
+  LocalDataSourceImpl(this.db, {this.queuedActorId});
+
+  /// Account stamped on every operation this instance queues.
+  ///
+  /// Set at construction from the session, and moved with [markQueuedActor]
+  /// when an editor signs in or out on the same device.
+  String? queuedActorId;
+
+  // The private field mirrors the public one so the rest of the class keeps a
+  // single name for it.
+  String? get _queuedActorId => queuedActorId;
+  set _queuedActorId(String? value) => queuedActorId = value;
+
+  @override
+  Future<int> discardQueuedOperationsFor(Set<String> actorIds) async {
+    if (actorIds.isEmpty) return 0;
+    return (db.delete(db.syncQueue)..where((t) => t.actorId.isIn(actorIds))).go();
+  }
+
+  @override
+  Future<void> markQueuedActor(String? value) async {
+    _queuedActorId = value;
+    await db
+        .update(db.syncQueue)
+        .write(SyncQueueCompanion(actorId: Value(value)));
+  }
 
   // ------------------------------ reads ------------------------------
 
   @override
   Future<List<LocalCategory>> getCategories() {
     return (db.select(db.categories)..where((t) => t.deletedAt.isNull())).get();
+  }
+
+  /// Fails when [write] would change nothing at all, which is what happens
+  /// when [id] does not exist (any more). Reporting that instead of
+  /// queueing a phantom operation keeps the outbox honest: a write that
+  /// silently matched zero rows would otherwise be pushed later as an
+  /// update for a row the server does not have.
+  Future<void> _requireAffected(Future<int> write, String id) async {
+    if (await write == 0) {
+      throw StateError('No local row with id $id');
+    }
+  }
+
+  /// Rejects a queued row that points at a parent which no longer exists.
+  ///
+  /// The local database intentionally has no foreign keys (rows arrive out
+  /// of order during a pull), so this is the substitute. Without it an
+  /// insert would be accepted locally and rejected by PostgreSQL, leaving a
+  /// permanently failing entry in the outbox.
+  Future<void> _requireParent(
+    Future<bool> exists, {
+    required String childTable,
+  }) async {
+    if (!await exists) {
+      throw StateError('Missing parent row for $childTable');
+    }
   }
 
   // ----------------------------- writes ------------------------------
@@ -174,12 +245,15 @@ class LocalDataSourceImpl implements LocalDataSource {
       //
       // That is why `description` is passed as Value.absent when the caller
       // left it out: an omitted argument must not mean "erase it".
-      await (db.update(db.categories)..where((t) => t.id.equals(id))).write(
-        CategoriesCompanion(
-          name: Value(name),
-          description: Value.absentIfNull(description),
-          updatedAt: Value(now),
+      await _requireAffected(
+        (db.update(db.categories)..where((t) => t.id.equals(id))).write(
+          CategoriesCompanion(
+            name: Value(name),
+            description: Value.absentIfNull(description),
+            updatedAt: Value(now),
+          ),
         ),
+        id,
       );
 
       await _enqueue(
@@ -202,8 +276,11 @@ class LocalDataSourceImpl implements LocalDataSource {
     await db.transaction(() async {
       // Soft delete: the row survives locally so the delete can be pushed
       // and so a later pull can confirm it.
-      await (db.update(db.categories)..where((t) => t.id.equals(id))).write(
-        CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      await _requireAffected(
+        (db.update(db.categories)..where((t) => t.id.equals(id))).write(
+          CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        ),
+        id,
       );
 
       await _enqueue(
@@ -241,6 +318,14 @@ class LocalDataSourceImpl implements LocalDataSource {
     final now = DateTime.now().toUtc();
     final id = _uuid.v4();
 
+    await _requireParent(
+      (db.select(db.categories)
+            ..where((t) => t.id.equals(categoryId) & t.deletedAt.isNull()))
+          .getSingleOrNull()
+          .then((row) => row != null),
+      childTable: SyncTables.subcategories,
+    );
+
     await db.transaction(() async {
       await db
           .into(db.subcategories)
@@ -277,8 +362,11 @@ class LocalDataSourceImpl implements LocalDataSource {
     final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
-      await (db.update(db.subcategories)..where((t) => t.id.equals(id))).write(
-        SubcategoriesCompanion(name: Value(name), updatedAt: Value(now)),
+      await _requireAffected(
+        (db.update(db.subcategories)..where((t) => t.id.equals(id))).write(
+          SubcategoriesCompanion(name: Value(name), updatedAt: Value(now)),
+        ),
+        id,
       );
 
       await _enqueue(
@@ -385,6 +473,14 @@ class LocalDataSourceImpl implements LocalDataSource {
         ? null
         : stripLegalTextSymbols(description);
 
+    await _requireParent(
+      (db.select(db.subcategories)
+            ..where((t) => t.id.equals(subcategoryId) & t.deletedAt.isNull()))
+          .getSingleOrNull()
+          .then((row) => row != null),
+      childTable: SyncTables.legalCases,
+    );
+
     await db.transaction(() async {
       await db
           .into(db.legalCases)
@@ -428,12 +524,15 @@ class LocalDataSourceImpl implements LocalDataSource {
         : stripLegalTextSymbols(description);
 
     await db.transaction(() async {
-      await (db.update(db.legalCases)..where((t) => t.id.equals(id))).write(
-        LegalCasesCompanion(
-          title: Value(cleanTitle),
-          description: Value.absentIfNull(cleanDescription),
-          updatedAt: Value(now),
+      await _requireAffected(
+        (db.update(db.legalCases)..where((t) => t.id.equals(id))).write(
+          LegalCasesCompanion(
+            title: Value(cleanTitle),
+            description: Value.absentIfNull(cleanDescription),
+            updatedAt: Value(now),
+          ),
         ),
+        id,
       );
 
       await _enqueue(
@@ -489,6 +588,14 @@ class LocalDataSourceImpl implements LocalDataSource {
       shortDescription,
     );
 
+    await _requireParent(
+      (db.select(db.legalCases)
+            ..where((t) => t.id.equals(caseId) & t.deletedAt.isNull()))
+          .getSingleOrNull()
+          .then((row) => row != null),
+      childTable: SyncTables.caseSteps,
+    );
+
     await db.transaction(() async {
       await db
           .into(db.caseSteps)
@@ -538,13 +645,16 @@ class LocalDataSourceImpl implements LocalDataSource {
       // Every argument is optional here because the roadmap editor renumbers
       // steps wholesale: a reorder touches step_number on many rows while
       // leaving title and short_description alone.
-      await (db.update(db.caseSteps)..where((t) => t.id.equals(id))).write(
-        CaseStepsCompanion(
-          stepNumber: Value.absentIfNull(stepNumber),
-          title: Value.absentIfNull(cleanTitle),
-          shortDescription: Value.absentIfNull(cleanDescription),
-          updatedAt: Value(now),
+      await _requireAffected(
+        (db.update(db.caseSteps)..where((t) => t.id.equals(id))).write(
+          CaseStepsCompanion(
+            stepNumber: Value.absentIfNull(stepNumber),
+            title: Value.absentIfNull(cleanTitle),
+            shortDescription: Value.absentIfNull(cleanDescription),
+            updatedAt: Value(now),
+          ),
         ),
+        id,
       );
 
       await _enqueue(
@@ -566,8 +676,11 @@ class LocalDataSourceImpl implements LocalDataSource {
     final now = DateTime.now().toUtc();
 
     await db.transaction(() async {
-      await (db.update(db.caseSteps)..where((t) => t.id.equals(id))).write(
-        CaseStepsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      await _requireAffected(
+        (db.update(db.caseSteps)..where((t) => t.id.equals(id))).write(
+          CaseStepsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+        ),
+        id,
       );
 
       await _enqueue(
@@ -624,28 +737,36 @@ class LocalDataSourceImpl implements LocalDataSource {
   }) async {
     // Flipping deleted_at and queueing the delete are one unit of work, so
     // this is called from inside a transaction by every caller.
+    // A delete names a row that exists on this device; if it does not, the
+    // caller is working from stale ids and nothing should be queued.
     switch (table) {
       case SyncTables.categories:
-        await (db.update(
-          db.categories,
-        )..where((t) => t.id.equals(rowId))).write(
-          CategoriesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        await _requireAffected(
+          (db.update(db.categories)..where((t) => t.id.equals(rowId))).write(
+            CategoriesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+          ),
+          rowId,
         );
       case SyncTables.subcategories:
-        await (db.update(
-          db.subcategories,
-        )..where((t) => t.id.equals(rowId))).write(
-          SubcategoriesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        await _requireAffected(
+          (db.update(db.subcategories)..where((t) => t.id.equals(rowId))).write(
+            SubcategoriesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+          ),
+          rowId,
         );
       case SyncTables.legalCases:
-        await (db.update(
-          db.legalCases,
-        )..where((t) => t.id.equals(rowId))).write(
-          LegalCasesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        await _requireAffected(
+          (db.update(db.legalCases)..where((t) => t.id.equals(rowId))).write(
+            LegalCasesCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+          ),
+          rowId,
         );
       case SyncTables.caseSteps:
-        await (db.update(db.caseSteps)..where((t) => t.id.equals(rowId))).write(
-          CaseStepsCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+        await _requireAffected(
+          (db.update(db.caseSteps)..where((t) => t.id.equals(rowId))).write(
+            CaseStepsCompanion(deletedAt: Value(at), updatedAt: Value(at)),
+          ),
+          rowId,
         );
       default:
         throw ArgumentError('Unknown table: $table');
@@ -719,6 +840,9 @@ class LocalDataSourceImpl implements LocalDataSource {
   /// offline edits collapse into a single push carrying the final state. That
   /// keeps the queue from growing without bound and avoids replaying stale
   /// values over the server's newer ones.
+  ///
+  /// Every entry records [_queuedActorId] so the sync worker can refuse to
+  /// push an account's unpublished edits after a different account signs in.
   Future<void> _enqueue({
     required String table,
     required String rowId,
@@ -740,6 +864,7 @@ class LocalDataSourceImpl implements LocalDataSource {
             operation: operation,
             payload: Value(payload == null ? null : jsonEncode(payload)),
             createdAt: at,
+            actorId: Value(_queuedActorId),
           ),
         );
   }

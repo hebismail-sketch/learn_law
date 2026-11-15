@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../app_log.dart';
 import '../legal_text.dart';
+import 'admin_guard.dart';
 import 'app_database.dart';
 import 'connectivity_service.dart';
 import 'sync_types.dart';
@@ -25,9 +27,18 @@ class SyncResult {
 }
 
 class _PushQueueResult {
-  const _PushQueueResult({required this.pushed, this.error});
+  const _PushQueueResult({required this.pushed, this.skipped = 0, this.error});
 
   final int pushed;
+
+  /// Entries the server deliberately refused (as opposed to could not be
+  /// reached). They stay queued, but they do not stop the rest of the queue
+  /// or the pull, so one bad row cannot freeze the device forever.
+  final int skipped;
+
+  /// Set only for problems that affect every entry, such as no network or no
+  /// signed-in session. Presenting those as per-row failures would inflate
+  /// the attempt counter of rows that were never actually sent.
   final Object? error;
 }
 
@@ -40,6 +51,11 @@ class _PushQueueResult {
 /// Rows are reconciled on `updated_at`. A local row is overwritten only when
 /// the server copy is strictly newer *and* nothing is pending for that row, so
 /// an unsynced local edit is never clobbered by a stale read.
+///
+/// Reads are anonymous (`anon`) and writes need the editor's own session and
+/// the `app_metadata.role=admin` claim the RLS policies check. The app never
+/// decides by itself what may be written; it only decides whether asking is
+/// worth a network round trip.
 class SyncManager {
   static const _caseStepsBackfillMarker = '__case_steps_backfill_v1__';
   static const _pullPageSize = 500;
@@ -47,6 +63,15 @@ class SyncManager {
   final AppDatabase db;
   final SupabaseClient supabase;
   final ConnectivityService connectivity;
+
+  /// Reads while nobody is signed in.
+  ///
+  /// A Supabase client sends whatever session it holds. Without an account
+  /// that is the publishable key alone, which RLS treats as `anon` — the same
+  /// policy path the app has always used for content. Going through an
+  /// explicit client (instead of relying on the absence of a session) means
+  /// the reading path keeps working even if a session is restored later.
+  late final SupabaseClient _anonymous;
 
   final _controller = StreamController<SyncStatus>.broadcast();
   Stream<SyncStatus> get status => _controller.stream;
@@ -58,11 +83,49 @@ class SyncManager {
     required this.db,
     required this.supabase,
     required this.connectivity,
-  });
+  }) {
+    // Copy the endpoint and publishable key, not the session: this client
+    // stays anonymous for its whole life.
+    final headers = Map<String, String>.from(supabase.headers);
+    _anonymous = SupabaseClient(
+      supabase.rest.url.replaceFirst(RegExp(r'/rest/v1/?$'), ''),
+      headers['apikey'] ?? '',
+      headers: headers,
+    );
+  }
+
+  /// The client to read with: anonymous unless an editor is signed in.
+  SupabaseClient get _reader =>
+      hasSignedInSession(supabase) ? supabase : _anonymous;
 
   /// Runs a sync, or joins the one already running.
   Future<SyncResult> sync() {
     return _inFlight ??= _run().whenComplete(() => _inFlight = null);
+  }
+
+  /// Pushes whatever is queued, without pulling.
+  ///
+  /// Used right before a sign-out: once the session ends the queued writes
+  /// can no longer be authorized, so this is the last chance to hand them
+  /// over. Failures are reported but never thrown: the queue stays on disk,
+  /// and the caller's next account starts with a clean outbox anyway.
+  Future<SyncResult> flushPendingOperations() async {
+    try {
+      final pending = await db.select(db.syncQueue).get();
+      if (pending.isEmpty) return const SyncResult(status: SyncStatus.success);
+      if (!await connectivity.isOnline) {
+        return const SyncResult(status: SyncStatus.offline);
+      }
+      final push = await _pushQueue();
+      return SyncResult(
+        pushed: push.pushed,
+        status: push.error == null ? SyncStatus.success : SyncStatus.failure,
+        error: push.error?.toString(),
+      );
+    } catch (e) {
+      logError('Flush before sign-out failed', e);
+      return SyncResult(status: SyncStatus.failure, error: e.toString());
+    }
   }
 
   /// Subscribes to connectivity changes and syncs whenever the network returns.
@@ -84,6 +147,9 @@ class SyncManager {
       }
 
       final push = await _pushQueue();
+      // A queue that could not be flushed (no session, network dropped) still
+      // leaves the pull worth running: reads are anonymous and keep the
+      // offline copy current, and the pending writes stay safe on disk.
       final pulled = await _pullChanges();
       if (push.error != null) {
         _emit(SyncStatus.failure);
@@ -102,6 +168,7 @@ class SyncManager {
       );
     } catch (e) {
       _emit(SyncStatus.failure);
+      logError('Sync failed', e);
       return SyncResult(status: SyncStatus.failure, error: e.toString());
     }
   }
@@ -109,12 +176,53 @@ class SyncManager {
   // ------------------------------- push -------------------------------
 
   /// Sends every queued operation and clears the ones the server accepted.
+  ///
+  /// Before anything is sent the current user must be an administrator by the
+  /// same rule the RLS policies use. A signed-out phone therefore queues its
+  /// offline edits without ever attempting a write, and a signed-in non-admin
+  /// gets the same treatment instead of a stream of authorization errors.
   Future<_PushQueueResult> _pushQueue() async {
     final pending = await (db.select(
       db.syncQueue,
     )..orderBy([(t) => OrderingTerm.asc(t.createdAt)])).get();
+    if (pending.isEmpty) return const _PushQueueResult(pushed: 0);
+
+    if (!hasSignedInSession(supabase)) {
+      return const _PushQueueResult(
+        pushed: 0,
+        error: 'Pending changes wait for an administrator sign-in.',
+      );
+    }
+    if (!await AdminGuard.verify(supabase)) {
+      // A session that is valid but no longer carries the admin role cannot
+      // push anything, and never will: an account's role is not something the
+      // user can change, so these entries are dead weight. They are dropped
+      // instead of retried forever. Anything queued before the role was lost
+      // is discarded with them.
+      await _discardDeadQueue();
+      return const _PushQueueResult(
+        pushed: 0,
+        error: 'Pending changes were discarded: not an administrator.',
+      );
+    }
+
+    final currentUserId = supabase.auth.currentUser?.id;
+    // Rows queued before owners were recorded (older builds) have no actor
+    // and are pushed by whoever is now verified as an admin.
+    final ownedByOtherAccount = pending.any(
+      (op) => op.actorId != null && op.actorId != currentUserId,
+    );
+    if (ownedByOtherAccount) {
+      // Written by another account on this device. Pushing it now would move
+      // one editor's unpublished content onto another editor's session.
+      return const _PushQueueResult(
+        pushed: 0,
+        error: 'Pending changes belong to a different account.',
+      );
+    }
 
     var pushed = 0;
+    var skipped = 0;
     for (final op in pending) {
       try {
         await _applyRemote(op);
@@ -122,15 +230,28 @@ class SyncManager {
         // crash mid-push replays the operation instead of losing it.
         await (db.delete(db.syncQueue)..where((t) => t.id.equals(op.id))).go();
         pushed++;
-      } catch (e) {
+      } on PostgrestException catch (e) {
+        // The server answered and refused: an RLS denial, a constraint or a
+        // missing row. Retrying forever would block every later edit, so the
+        // entry is set aside locally and the loop continues.
         await _recordFailure(op, e);
-        return _PushQueueResult(pushed: pushed, error: e);
+        skipped++;
+        logError('Queued ${op.operation} on ${op.targetTable} was refused', e);
+      } catch (e) {
+        // Transport-level: nothing was decided, so stop and retry later.
+        await _recordFailure(op, e);
+        return _PushQueueResult(pushed: pushed, skipped: skipped, error: e);
       }
     }
-    return _PushQueueResult(pushed: pushed);
+    return _PushQueueResult(pushed: pushed, skipped: skipped);
   }
 
   Future<void> _applyRemote(PendingOp op) async {
+    // The table name comes from the local outbox, which is user-writable on a
+    // rooted phone. Only the four known tables may ever be targeted.
+    if (!SyncTables.all.contains(op.targetTable)) {
+      throw ArgumentError('Unknown sync table: ${op.targetTable}');
+    }
     final table = supabase.from(op.targetTable);
     final payload = op.payload == null
         ? <String, dynamic>{}
@@ -158,7 +279,10 @@ class SyncManager {
 
     switch (op.operation) {
       case 'insert':
-        await table.upsert(payload);
+        // A plain insert, not an upsert: an upsert on `id` would let a changed
+        // payload overwrite a row the policy only allows this user to update,
+        // and it hides a genuine duplicate from the server audit trail.
+        await table.insert(payload);
       case 'update':
         // The queue row already carries the id, so the update is keyed on it
         // rather than trusting a second copy inside the payload.
@@ -195,9 +319,32 @@ class SyncManager {
     await (db.update(db.syncQueue)..where((t) => t.id.equals(op.id))).write(
       SyncQueueCompanion(
         attempts: Value(op.attempts + 1),
-        lastError: Value(error.toString()),
+        // Stored for diagnostics only; read on this device, never uploaded.
+        lastError: Value(_describe(error)),
       ),
     );
+  }
+
+  /// Drops operations that can never be authorized again.
+  ///
+  /// Called when the session is signed in but the server refuses writes to it
+  /// because the account is no longer an administrator. Such entries would be
+  /// rejected on every later sync, so keeping them only risks leaking content
+  /// into whatever the next account on the device does.
+  Future<void> _discardDeadQueue() async {
+    final removed = await db.delete(db.syncQueue).go();
+    if (removed == 0) return;
+    logDebug(
+      'Dropped $removed queued operation(s) not authorized for this account.',
+    );
+  }
+
+  /// A short description of a failure that carries no request content.
+  String _describe(Object error) {
+    if (error is PostgrestException) {
+      return '${error.code ?? 'error'}: ${error.message}';
+    }
+    return error.runtimeType.toString();
   }
 
   // ------------------------------- pull -------------------------------
@@ -215,7 +362,7 @@ class SyncManager {
       late List<dynamic> response;
 
       do {
-        response = await supabase
+        response = await _reader
             .from(table)
             .select()
             .gt('updated_at', since.toUtc().toIso8601String())
@@ -257,7 +404,7 @@ class SyncManager {
     late List<dynamic> response;
 
     do {
-      response = await supabase
+      response = await _reader
           .from(SyncTables.caseSteps)
           .select()
           .eq('case_id', caseId)
@@ -471,5 +618,8 @@ class SyncManager {
     }
   }
 
-  Future<void> dispose() => _controller.close();
+  Future<void> dispose() async {
+    await _anonymous.dispose();
+    await _controller.close();
+  }
 }

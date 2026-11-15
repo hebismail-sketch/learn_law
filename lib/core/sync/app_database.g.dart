@@ -1745,6 +1745,17 @@ class $SyncQueueTable extends SyncQueue
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _actorIdMeta = const VerificationMeta(
+    'actorId',
+  );
+  @override
+  late final GeneratedColumn<String> actorId = GeneratedColumn<String>(
+    'actor_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _attemptsMeta = const VerificationMeta(
     'attempts',
   );
@@ -1776,6 +1787,7 @@ class $SyncQueueTable extends SyncQueue
     operation,
     payload,
     createdAt,
+    actorId,
     attempts,
     lastError,
   ];
@@ -1837,6 +1849,12 @@ class $SyncQueueTable extends SyncQueue
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('actor_id')) {
+      context.handle(
+        _actorIdMeta,
+        actorId.isAcceptableOrUnknown(data['actor_id']!, _actorIdMeta),
+      );
+    }
     if (data.containsKey('attempts')) {
       context.handle(
         _attemptsMeta,
@@ -1882,6 +1900,10 @@ class $SyncQueueTable extends SyncQueue
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      actorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}actor_id'],
+      ),
       attempts: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}attempts'],
@@ -1920,6 +1942,14 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
   final String? payload;
   final DateTime createdAt;
 
+  /// Supabase user id of the account that queued this operation.
+  ///
+  /// Null for rows written while signed out. The sync worker only pushes an
+  /// operation under the session that wrote it, so handing the phone to a
+  /// different account cannot replay one account's admin edits onto another
+  /// account's session.
+  final String? actorId;
+
   /// Number of failed push attempts, used for backoff and error reporting.
   final int attempts;
   final String? lastError;
@@ -1930,6 +1960,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
     required this.operation,
     this.payload,
     required this.createdAt,
+    this.actorId,
     required this.attempts,
     this.lastError,
   });
@@ -1944,6 +1975,9 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
       map['payload'] = Variable<String>(payload);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || actorId != null) {
+      map['actor_id'] = Variable<String>(actorId);
+    }
     map['attempts'] = Variable<int>(attempts);
     if (!nullToAbsent || lastError != null) {
       map['last_error'] = Variable<String>(lastError);
@@ -1961,6 +1995,9 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
           ? const Value.absent()
           : Value(payload),
       createdAt: Value(createdAt),
+      actorId: actorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actorId),
       attempts: Value(attempts),
       lastError: lastError == null && nullToAbsent
           ? const Value.absent()
@@ -1980,6 +2017,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
       operation: serializer.fromJson<String>(json['operation']),
       payload: serializer.fromJson<String?>(json['payload']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      actorId: serializer.fromJson<String?>(json['actorId']),
       attempts: serializer.fromJson<int>(json['attempts']),
       lastError: serializer.fromJson<String?>(json['lastError']),
     );
@@ -1994,6 +2032,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
       'operation': serializer.toJson<String>(operation),
       'payload': serializer.toJson<String?>(payload),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'actorId': serializer.toJson<String?>(actorId),
       'attempts': serializer.toJson<int>(attempts),
       'lastError': serializer.toJson<String?>(lastError),
     };
@@ -2006,6 +2045,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
     String? operation,
     Value<String?> payload = const Value.absent(),
     DateTime? createdAt,
+    Value<String?> actorId = const Value.absent(),
     int? attempts,
     Value<String?> lastError = const Value.absent(),
   }) => PendingOp(
@@ -2015,6 +2055,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
     operation: operation ?? this.operation,
     payload: payload.present ? payload.value : this.payload,
     createdAt: createdAt ?? this.createdAt,
+    actorId: actorId.present ? actorId.value : this.actorId,
     attempts: attempts ?? this.attempts,
     lastError: lastError.present ? lastError.value : this.lastError,
   );
@@ -2028,6 +2069,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
       operation: data.operation.present ? data.operation.value : this.operation,
       payload: data.payload.present ? data.payload.value : this.payload,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      actorId: data.actorId.present ? data.actorId.value : this.actorId,
       attempts: data.attempts.present ? data.attempts.value : this.attempts,
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
     );
@@ -2042,6 +2084,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
           ..write('operation: $operation, ')
           ..write('payload: $payload, ')
           ..write('createdAt: $createdAt, ')
+          ..write('actorId: $actorId, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError')
           ..write(')'))
@@ -2056,6 +2099,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
     operation,
     payload,
     createdAt,
+    actorId,
     attempts,
     lastError,
   );
@@ -2069,6 +2113,7 @@ class PendingOp extends DataClass implements Insertable<PendingOp> {
           other.operation == this.operation &&
           other.payload == this.payload &&
           other.createdAt == this.createdAt &&
+          other.actorId == this.actorId &&
           other.attempts == this.attempts &&
           other.lastError == this.lastError);
 }
@@ -2080,6 +2125,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
   final Value<String> operation;
   final Value<String?> payload;
   final Value<DateTime> createdAt;
+  final Value<String?> actorId;
   final Value<int> attempts;
   final Value<String?> lastError;
   final Value<int> rowid;
@@ -2090,6 +2136,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
     this.operation = const Value.absent(),
     this.payload = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.actorId = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2101,6 +2148,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
     required String operation,
     this.payload = const Value.absent(),
     required DateTime createdAt,
+    this.actorId = const Value.absent(),
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2116,6 +2164,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
     Expression<String>? operation,
     Expression<String>? payload,
     Expression<DateTime>? createdAt,
+    Expression<String>? actorId,
     Expression<int>? attempts,
     Expression<String>? lastError,
     Expression<int>? rowid,
@@ -2127,6 +2176,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
       if (operation != null) 'operation': operation,
       if (payload != null) 'payload': payload,
       if (createdAt != null) 'created_at': createdAt,
+      if (actorId != null) 'actor_id': actorId,
       if (attempts != null) 'attempts': attempts,
       if (lastError != null) 'last_error': lastError,
       if (rowid != null) 'rowid': rowid,
@@ -2140,6 +2190,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
     Value<String>? operation,
     Value<String?>? payload,
     Value<DateTime>? createdAt,
+    Value<String?>? actorId,
     Value<int>? attempts,
     Value<String?>? lastError,
     Value<int>? rowid,
@@ -2151,6 +2202,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
       operation: operation ?? this.operation,
       payload: payload ?? this.payload,
       createdAt: createdAt ?? this.createdAt,
+      actorId: actorId ?? this.actorId,
       attempts: attempts ?? this.attempts,
       lastError: lastError ?? this.lastError,
       rowid: rowid ?? this.rowid,
@@ -2178,6 +2230,9 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (actorId.present) {
+      map['actor_id'] = Variable<String>(actorId.value);
+    }
     if (attempts.present) {
       map['attempts'] = Variable<int>(attempts.value);
     }
@@ -2199,6 +2254,7 @@ class SyncQueueCompanion extends UpdateCompanion<PendingOp> {
           ..write('operation: $operation, ')
           ..write('payload: $payload, ')
           ..write('createdAt: $createdAt, ')
+          ..write('actorId: $actorId, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('rowid: $rowid')
@@ -3343,6 +3399,7 @@ typedef $$SyncQueueTableCreateCompanionBuilder =
       required String operation,
       Value<String?> payload,
       required DateTime createdAt,
+      Value<String?> actorId,
       Value<int> attempts,
       Value<String?> lastError,
       Value<int> rowid,
@@ -3355,6 +3412,7 @@ typedef $$SyncQueueTableUpdateCompanionBuilder =
       Value<String> operation,
       Value<String?> payload,
       Value<DateTime> createdAt,
+      Value<String?> actorId,
       Value<int> attempts,
       Value<String?> lastError,
       Value<int> rowid,
@@ -3396,6 +3454,11 @@ class $$SyncQueueTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actorId => $composableBuilder(
+    column: $table.actorId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3449,6 +3512,11 @@ class $$SyncQueueTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get actorId => $composableBuilder(
+    column: $table.actorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get attempts => $composableBuilder(
     column: $table.attempts,
     builder: (column) => ColumnOrderings(column),
@@ -3488,6 +3556,9 @@ class $$SyncQueueTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get actorId =>
+      $composableBuilder(column: $table.actorId, builder: (column) => column);
 
   GeneratedColumn<int> get attempts =>
       $composableBuilder(column: $table.attempts, builder: (column) => column);
@@ -3533,6 +3604,7 @@ class $$SyncQueueTableTableManager
                 Value<String> operation = const Value.absent(),
                 Value<String?> payload = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> actorId = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3543,6 +3615,7 @@ class $$SyncQueueTableTableManager
                 operation: operation,
                 payload: payload,
                 createdAt: createdAt,
+                actorId: actorId,
                 attempts: attempts,
                 lastError: lastError,
                 rowid: rowid,
@@ -3555,6 +3628,7 @@ class $$SyncQueueTableTableManager
                 required String operation,
                 Value<String?> payload = const Value.absent(),
                 required DateTime createdAt,
+                Value<String?> actorId = const Value.absent(),
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3565,6 +3639,7 @@ class $$SyncQueueTableTableManager
                 operation: operation,
                 payload: payload,
                 createdAt: createdAt,
+                actorId: actorId,
                 attempts: attempts,
                 lastError: lastError,
                 rowid: rowid,

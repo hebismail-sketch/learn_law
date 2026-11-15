@@ -48,15 +48,32 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
   }
 
   Future<void> _checkAuthorization() async {
-    final isAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    // The server-backed check: it also works when the app was cold-started
+    // offline, and it re-reads the role instead of trusting the session copy.
+    final isAdmin = await sl<AppBackendRegistry>().adminAccessAllowed;
     if (!mounted) return;
     setState(() {
       _isAuthorized = isAdmin;
       _isLoading = false;
     });
     if (isAdmin) {
+      _retryStuckQueue();
       _fetchCategories();
       _addStep();
+    }
+  }
+
+  /// Gives operations the server previously refused one more chance.
+  ///
+  /// A refusal is often temporary from the phone's point of view: a parent row
+  /// was created on another admin device and has not been pulled yet. Opening
+  /// the hub is the moment the data is current, so those entries can usually
+  /// go through now. An actual permission denial is simply rejected again.
+  Future<void> _retryStuckQueue() async {
+    try {
+      await sl<AppBackendRegistry>().syncManager.flushPendingOperations();
+    } catch (_) {
+      // Offline: the queue stays on disk untouched.
     }
   }
 
@@ -122,7 +139,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      _showSnackBar('Error loading categories: $e', isError: true);
+      _showSnackBar('تعذّر تحميل التصنيفات. حاول مجددًا.', isError: true);
     }
   }
 
@@ -146,7 +163,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      _showSnackBar('Error loading subcategories: $e', isError: true);
+      _showSnackBar('تعذّر تحميل الأقسام الفرعية. حاول مجددًا.', isError: true);
     }
   }
 
@@ -199,7 +216,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               } catch (e) {
                 if (!mounted) return;
                 setState(() => _isLoading = false);
-                _showSnackBar('فشل إضافة التصنيف: $e', isError: true);
+                _showSnackBar('فشل إضافة التصنيف.', isError: true);
               }
             },
             child: const Text('إضافة'),
@@ -264,7 +281,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               } catch (e) {
                 if (!mounted) return;
                 setState(() => _isLoading = false);
-                _showSnackBar('فشل إضافة القسم: $e', isError: true);
+                _showSnackBar('فشل إضافة القسم.', isError: true);
               }
             },
             child: const Text('إضافة'),
@@ -372,7 +389,7 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
-      _showSnackBar('حدث خطأ أثناء الحفظ: $e', isError: true);
+      _showSnackBar('حدث خطأ أثناء الحفظ. حاول مجددًا.', isError: true);
     }
   }
 
@@ -453,12 +470,15 @@ class _AdminHubScreenState extends State<AdminHubScreen> {
               try {
                 await sl<AppBackendRegistry>()
                     .signOutAndUseDefaultEnvironment();
-              } catch (error) {
-                _showSnackBar('تعذّر تسجيل الخروج: $error', isError: true);
+              } catch (_) {
+                _showSnackBar(
+                  'تعذّر تسجيل الخروج. تحقّق من الاتصال وحاول مجددًا.',
+                  isError: true,
+                );
                 return;
               }
               if (!context.mounted) return;
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              pushCategoriesHome(context);
             },
           ),
         ],

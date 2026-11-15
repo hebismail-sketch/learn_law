@@ -2,6 +2,16 @@
     <init>();
 }
 
+# Drift, Supabase and connectivity are reached from Dart over the platform
+# channel, which R8 does not analyse, so they need no keep rules of their own.
+# These are the remaining entry points that are only referenced by name.
+-keep class androidx.startup.InitializationProvider { *; }
+
+# Keep line numbers readable in Play Console crash reports while still
+# obfuscating class and member names (the table also feeds de-obfuscation).
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
 # Google Mobile Ads (Play services Ads) requires its classes to survive R8.
 -keep class com.google.android.gms.ads.** { *; }
 

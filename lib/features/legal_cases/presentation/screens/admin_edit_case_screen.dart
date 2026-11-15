@@ -56,7 +56,8 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
   }
 
   Future<void> _checkAuthorization() async {
-    final isAdmin = await sl<AppBackendRegistry>().currentUserIsAdmin;
+    // Server-backed check, also usable offline after a cold start.
+    final isAdmin = await sl<AppBackendRegistry>().adminAccessAllowed;
     if (!mounted) return;
     setState(() => _isAuthorized = isAdmin);
     if (isAdmin) {
@@ -94,7 +95,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isFolderLoading = false);
-      _showSnackBar('تعذّر تحميل مسار الفولدر: $e', isError: true);
+      _showSnackBar('تعذّر تحميل مسار الفولدر.', isError: true);
     }
   }
 
@@ -165,7 +166,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
         isError: synced.status != SyncStatus.success,
       );
     } catch (e) {
-      if (mounted) _showSnackBar('فشل تعديل الفولدر: $e', isError: true);
+      if (mounted) _showSnackBar('فشل تعديل الفولدر.', isError: true);
     } finally {
       if (mounted) setState(() => _isFolderSaving = false);
     }
@@ -240,7 +241,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('فشل الحذف: $e', isError: true);
+      _showSnackBar('فشل الحذف.', isError: true);
       setState(() => _isFolderSaving = false);
     }
   }
@@ -306,7 +307,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      _showSnackBar('فشل جلب خطوات القضية: $e', isError: true);
+      _showSnackBar('فشل جلب خطوات القضية.', isError: true);
     }
   }
 
@@ -506,7 +507,7 @@ class _AdminEditCaseScreenState extends State<AdminEditCaseScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
-      _showSnackBar('حدث خطأ أثناء التعديل: $e', isError: true);
+      _showSnackBar('حدث خطأ أثناء التعديل. حاول مجددًا.', isError: true);
     }
   }
 
