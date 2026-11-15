@@ -47,6 +47,8 @@ app.*.map.json
 build/
 android/build/
 android/.gradle/
+*.aab
+*.apk
 
 # Local admin prototypes, generated fragments, and scratch files
 /admin_cases.html

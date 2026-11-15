@@ -13,7 +13,7 @@ abstract final class AdMobService {
   static const bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
   static const interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
   static const _startupAdTimeout = Duration(seconds: 5);
-  static const _interstitialNavigationInterval = 3;
+  static const _interstitialNavigationInterval = 15;
 
   static Future<void>? _initialization;
   static bool _isInitialized = false;
