@@ -1,7 +1,37 @@
-﻿
 # Release binaries are built, not committed (flutter build appbundle / apk).
 *.aab
 *.apk
+
+# Build output, caches and per-machine tool settings.
+/build/
+/.dart_tool/
+/.idea/
+/.flutter-plugins-dependencies
+/android/.gradle/
+/android/build/
+/android/.kotlin/
+/android/local.properties
+/android/key.properties
+/android/app/key.properties
+/android/learn_law_android.iml
+*.iml
+.vscode/
+.kotlin/
+/ios/Flutter/ephemeral/
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/ios/Runner/GeneratedPluginRegistrant.{h,m}
+/linux/flutter/ephemeral/
+/macos/Flutter/ephemeral/
+/windows/flutter/ephemeral/
+
+# Signing material and anything derived from it. Never committed.
+*.jks
+*.keystore
+/android/keystore-backup/
+*.enc
+*.enc.sha256
+learnlaw-upload-key-*
 
 # Local data exports and throwaway maintenance reports.
 /case_health_report.csv
@@ -9,11 +39,3 @@
 /scripts/probe_*.mjs
 /scripts/case_health_report.mjs
 /docs/data/*.json
-
-
-# Tool caches and reports that are rebuilt on every run.
-.kotlin/
-android/.kotlin/
-android/build/reports/
-*.iml
-.vscode/
