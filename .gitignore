@@ -1,98 +1,19 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
-.gradle/
-build/
-android/build/
-android/.gradle/
+﻿
+# Release binaries are built, not committed (flutter build appbundle / apk).
 *.aab
 *.apk
 
-# Local admin prototypes, generated fragments, and scratch files
-/admin_cases.html
-/admin_tree.html
-/admin_v2.html
-/admin_hub_screen.backup.dart
-/_chk.js
-/_t.js
-/_v2_*.js
-/_v2_*.html
-/_v2_*.txt
-/qa.mjs
-/qa2.mjs
-/equipment_case_payload.json
-/lib/features/legal_cases/presentation/screens/step_detail_v2.dart
+# Local data exports and throwaway maintenance reports.
+/case_health_report.csv
+/retired_empty_cases.json
+/scripts/probe_*.mjs
+/scripts/case_health_report.mjs
+/docs/data/*.json
 
-# Local Supabase maintenance scripts and case-data exports
-/scripts/_backup_*.json
-/scripts/_*.mjs
-/scripts/_test_parse.js
-/scripts/*payload*.json
-/scripts/talaq_darar_part*.json
-/scripts/test_case.txt
-/scripts/check_subs.ps1
-/scripts/import_case.ps1
-/scripts/import_case_md.ps1
-/scripts/list_cats.ps1
-/scripts/push_talaq.ps1
-/scripts/qa.mjs
-/scripts/serve.mjs
 
-# Signing material and anything derived from it. Never committed.
-/android/key.properties
-/android/**/*.jks
-/android/**/*.keystore
-*.jks
-*.keystore
-
-# Environment files
-.env
-.env.*
-!.env.example
-
-# Encrypted keystore backups
-*.enc
-*.enc.sha256
-learnlaw-upload-key-*
+# Tool caches and reports that are rebuilt on every run.
+.kotlin/
+android/.kotlin/
+android/build/reports/
+*.iml
+.vscode/
