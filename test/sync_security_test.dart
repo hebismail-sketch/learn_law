@@ -27,6 +27,7 @@ void main() {
     syncManager = SyncManager(
       db: database,
       supabase: SupabaseClient('http://127.0.0.1:1', 'test-publishable-key'),
+      anonKey: 'test-publishable-key',
       connectivity: _OnlineConnectivityService(),
     );
   });
@@ -46,12 +47,14 @@ void main() {
     expect(rows.single.targetTable, SyncTables.categories);
   });
 
-  test('a sign-out clears the owner so the next account inherits nothing',
-      () async {
-    await local.insertCategory(name: 'x');
-    await local.markQueuedActor(null);
-    expect((await queue()).single.actorId, isNull);
-  });
+  test(
+    'a sign-out clears the owner so the next account inherits nothing',
+    () async {
+      await local.insertCategory(name: 'x');
+      await local.markQueuedActor(null);
+      expect((await queue()).single.actorId, isNull);
+    },
+  );
 
   test('re-stamping moves unowned rows to the signing-in account', () async {
     await local.markQueuedActor(null);
@@ -77,11 +80,9 @@ void main() {
     // Give one row a distinct owner directly, as a row queued before a role
     // change would have.
     final firstId = rows.first.id;
-    await (database.update(
-      database.syncQueue,
-    )..where((t) => t.id.equals(firstId))).write(
-      const SyncQueueCompanion(actorId: Value('other-admin')),
-    );
+    await (database.update(database.syncQueue)
+          ..where((t) => t.id.equals(firstId)))
+        .write(const SyncQueueCompanion(actorId: Value('other-admin')));
 
     final removed = await local.discardQueuedOperationsFor({'other-admin'});
 
@@ -99,23 +100,27 @@ void main() {
     expect((await queue()).map((row) => row.actorId), everyElement(isNull));
   });
 
-  test('writing to a missing parent row is rejected before it is queued',
-      () async {
-    expect(
-      () => local.insertSubcategory(categoryId: 'missing', name: 'x'),
-      throwsStateError,
-    );
-    expect(await queue(), isEmpty);
-  });
+  test(
+    'writing to a missing parent row is rejected before it is queued',
+    () async {
+      expect(
+        () => local.insertSubcategory(categoryId: 'missing', name: 'x'),
+        throwsStateError,
+      );
+      expect(await queue(), isEmpty);
+    },
+  );
 
-  test('updating a row that no longer exists is rejected, not queued',
-      () async {
-    expect(
-      () => local.updateCategory(id: 'missing', name: 'x'),
-      throwsStateError,
-    );
-    expect(await queue(), isEmpty);
-  });
+  test(
+    'updating a row that no longer exists is rejected, not queued',
+    () async {
+      expect(
+        () => local.updateCategory(id: 'missing', name: 'x'),
+        throwsStateError,
+      );
+      expect(await queue(), isEmpty);
+    },
+  );
 
   test('a private local edit is never sent to the server', () async {
     await local.insertCategory(name: 'private');
@@ -127,25 +132,27 @@ void main() {
     expect(await queue(), hasLength(1));
   });
 
-  test('rows with no recorded owner are still usable by the next account',
-      () async {
-    // Rows queued by an earlier app version have no actor id. They must not
-    // block the queue for whoever is signed in now.
-    await database
-        .into(database.syncQueue)
-        .insert(
-          SyncQueueCompanion.insert(
-            id: 'legacy',
-            targetTable: SyncTables.categories,
-            rowId: 'row',
-            operation: 'update',
-            createdAt: DateTime.now().toUtc(),
-          ),
-        );
-    final removed = await local.discardQueuedOperationsFor({'admin-user'});
-    expect(removed, 0);
-    expect(await queue(), hasLength(1));
-  });
+  test(
+    'rows with no recorded owner are still usable by the next account',
+    () async {
+      // Rows queued by an earlier app version have no actor id. They must not
+      // block the queue for whoever is signed in now.
+      await database
+          .into(database.syncQueue)
+          .insert(
+            SyncQueueCompanion.insert(
+              id: 'legacy',
+              targetTable: SyncTables.categories,
+              rowId: 'row',
+              operation: 'update',
+              createdAt: DateTime.now().toUtc(),
+            ),
+          );
+      final removed = await local.discardQueuedOperationsFor({'admin-user'});
+      expect(removed, 0);
+      expect(await queue(), hasLength(1));
+    },
+  );
 
   test('unknown table names in the queue are not trusted', () async {
     await database
@@ -168,7 +175,10 @@ void main() {
     await local.insertCategory(name: 'x', description: 'd');
     final op = (await queue()).single;
     final payload = jsonDecode(op.payload!) as Map<String, dynamic>;
-    expect(payload.keys, unorderedEquals(<String>['id', 'name', 'description']));
+    expect(
+      payload.keys,
+      unorderedEquals(<String>['id', 'name', 'description']),
+    );
   });
 }
 

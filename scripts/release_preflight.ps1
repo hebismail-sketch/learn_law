@@ -13,7 +13,7 @@ try {
   Write-Output '== 1/6  Secrets are not in git ================================'
   $bad = @()
   foreach ($pattern in @('android/key.properties', 'android/*.jks', 'android/app/*.jks',
-                         'key.properties', '*.jks', '*.keystore', '.env', '.env.*')) {
+      'key.properties', '*.jks', '*.keystore', '.env', '.env.*')) {
     $tracked = git ls-files -- $pattern
     if ($tracked) { $bad += $tracked }
   }
@@ -40,7 +40,8 @@ try {
     Write-Output ''
     Write-Output '== 5/6  Release bundle ======================================='
     flutter build appbundle --release
-  } else {
+  }
+  else {
     Write-Output ''
     Write-Output '== 5/6  Release bundle (skipped, pass -Build) ================='
   }
@@ -53,6 +54,7 @@ try {
   Write-Output 'Preflight passed.'
   Write-Output 'Remaining manual steps: Play Console upload, Data Safety form,'
   Write-Output 'App Access credentials, content rating. See docs/play-console-checklist.md.'
-} finally {
+}
+finally {
   Pop-Location
 }

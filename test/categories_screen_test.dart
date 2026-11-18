@@ -37,6 +37,7 @@ void main() {
         productionClient: Supabase.instance.client,
         reviewClient: null,
         connectivity: ConnectivityService(),
+        anonKey: 'test-anon-key',
         databaseFactory: (_) => AppDatabase.forTesting(NativeDatabase.memory()),
       ),
     );

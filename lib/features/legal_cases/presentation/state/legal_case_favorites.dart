@@ -43,6 +43,12 @@ class LegalCaseFavorites extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Re-broadcasts the current favourites.
+  ///
+  /// Used after a sync or a manual reload so screens that animate on this store
+  /// redraw with the data that just arrived.
+  void notifyChanged() => notifyListeners();
+
   Future<bool> toggle(LegalCaseEntity legalCase) async {
     final preferences = _getPreferences();
     final nextFavorites = Map<String, LegalCaseEntity>.of(_favorites);

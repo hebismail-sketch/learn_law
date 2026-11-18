@@ -11,6 +11,14 @@
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules">
         <!-- Google's sample app ID keeps the closed-test build on test inventory. -->
+        <!--
+          RELEASE BLOCKER — replace before uploading to Google Play.
+          This is Google's sample application id (…~3347511713) and the ad unit
+          ids in lib/core/ads/ad_mob_service.dart are Google's sample units too.
+          A production release must use the app id and unit ids from your own
+          AdMob account; shipping the sample ones makes every request a test
+          request and is rejected by the Ads policy review.
+        -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>

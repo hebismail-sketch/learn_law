@@ -7,6 +7,17 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// AdMob units that belong to Google's sample account. A published app must not
+// carry them: every request stays a test request, and the Play Ads policy
+// review rejects it. Reading them here means a stale unit id fails the build
+// instead of shipping quietly.
+val sampleAdMobPublisherId = "ca-app-pub-3940256099942544"
+val manifestFile = file("src/main/AndroidManifest.xml")
+val adMobServiceFile = file("../../lib/core/ads/ad_mob_service.dart")
+val carriesSampleAdUnits =
+    manifestFile.readText().contains(sampleAdMobPublisherId) ||
+        adMobServiceFile.readText().contains(sampleAdMobPublisherId)
+
 android {
     namespace = "com.learnlaw.app"
     compileSdk = flutter.compileSdkVersion
@@ -64,6 +75,14 @@ android {
     if (signsRelease) {
         require(rootProject.file("key.properties").exists()) {
             "Missing android/key.properties. A release build must be signed with the upload keystore."
+        }
+        if (carriesSampleAdUnits) {
+            logger.warn(
+                "WARNING: this build still uses Google's SAMPLE AdMob ids " +
+                    "($sampleAdMobPublisherId). Every ad request will be a test request and " +
+                    "Google Play will fail the ads policy review. Set the real app id in " +
+                    "AndroidManifest.xml and the real unit ids in ad_mob_service.dart.",
+            )
         }
     }
 }

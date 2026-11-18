@@ -10,9 +10,12 @@
                 android:type="radial" />
         </shape>
     </item>
-    <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/splash_logo" />
-    </item>
+    <!--
+      No logo here on purpose. The launch window is a static drawable that is
+      decoded before the engine starts, so every pixel of it is paid for on
+      every cold start; the full-bleed bitmap that used to sit here is 638 KB
+      in a single density folder. Android 12+ draws the branded splash itself
+      (values-v31/styles.xml), and on older versions the app's own first frame
+      follows within a moment.
+    -->
 </layer-list>

@@ -58,15 +58,19 @@ class AppBackendContext {
     required String databaseName,
     required ConnectivityService connectivity,
     required AppDatabase Function(String name) databaseFactory,
+    required String anonKey,
   }) : database = databaseFactory(databaseName) {
     localDataSource = LocalDataSourceImpl(
       database,
       queuedActorId: _signedInUserId(client),
     );
+    // The key is handed over explicitly: the SDK keeps it private, and the
+    // sync engine needs it to read content anonymously.
     syncManager = SyncManager(
       db: database,
       supabase: client,
       connectivity: connectivity,
+      anonKey: anonKey,
     );
   }
 
@@ -90,6 +94,7 @@ class AppBackendRegistry {
     required SupabaseClient? reviewClient,
     bool reviewOnly = false,
     required ConnectivityService connectivity,
+    required String anonKey,
     AppDatabase Function(String name)? databaseFactory,
   }) : _reviewOnly = reviewOnly,
        _environment = ValueNotifier(
@@ -113,6 +118,7 @@ class AppBackendRegistry {
         databaseName: 'learn_law',
         connectivity: connectivity,
         databaseFactory: createDatabase,
+        anonKey: anonKey,
       );
     }
     if (reviewClient != null) {
@@ -121,6 +127,7 @@ class AppBackendRegistry {
         databaseName: 'learn_law_review',
         connectivity: connectivity,
         databaseFactory: createDatabase,
+        anonKey: anonKey,
       );
     }
   }

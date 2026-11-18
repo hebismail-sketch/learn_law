@@ -21,6 +21,7 @@ Future<void> initDependencies({
   required SupabaseClient? productionClient,
   required SupabaseClient? reviewClient,
   bool reviewOnly = false,
+  required String anonKey,
 }) async {
   sl.registerLazySingleton<ConnectivityService>(ConnectivityService.new);
   sl.registerLazySingleton<AppBackendRegistry>(
@@ -29,6 +30,7 @@ Future<void> initDependencies({
       reviewClient: reviewClient,
       reviewOnly: reviewOnly,
       connectivity: sl<ConnectivityService>(),
+      anonKey: anonKey,
     ),
   );
 

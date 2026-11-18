@@ -145,7 +145,9 @@ class LocalDataSourceImpl implements LocalDataSource {
   @override
   Future<int> discardQueuedOperationsFor(Set<String> actorIds) async {
     if (actorIds.isEmpty) return 0;
-    return (db.delete(db.syncQueue)..where((t) => t.actorId.isIn(actorIds))).go();
+    return (db.delete(
+      db.syncQueue,
+    )..where((t) => t.actorId.isIn(actorIds))).go();
   }
 
   @override

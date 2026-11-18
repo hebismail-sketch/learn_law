@@ -130,19 +130,26 @@ class AppDatabase extends _$AppDatabase {
   /// Used by tests to run against an in-memory database.
   AppDatabase.forTesting(super.executor);
 
-  /// Bumped to 2 when [SyncQueue] gained `actor_id`.
+  /// Bumped to 2 when [SyncQueue] gained `actor_id`, and to 3 when the read
+  /// indexes below were added.
   ///
-  /// The added column is nullable, so the step-up only has to add it; every
-  /// existing queued row keeps working and is simply treated as ownerless.
+  /// Both steps only add: a nullable column, and indexes. Existing rows and
+  /// queued operations are untouched.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) => m.createAll(),
+    onCreate: (m) async {
+      await m.createAll();
+      await _createReadIndexes();
+    },
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.addColumn(syncQueue, syncQueue.actorId);
+      }
+      if (from < 3) {
+        await _createReadIndexes();
       }
     },
     beforeOpen: (details) async {
@@ -151,4 +158,32 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
+
+  /// Indexes for the reads the UI and the pull actually run.
+  ///
+  /// Without them every `where subcategory_id = ? and deleted_at is null` is a
+  /// full scan of the table: trivial on a laptop, tens of thousands of rows on
+  /// a phone inside one download frame — which is exactly what made the first
+  /// run look hung. `IF NOT EXISTS` keeps the migration re-runnable.
+  Future<void> _createReadIndexes() async {
+    const statements = [
+      // Home → categories, and the pull's `updated_at > ?` scan.
+      'CREATE INDEX IF NOT EXISTS idx_categories_updated '
+          'ON categories (updated_at)',
+      // Category → subcategories.
+      'CREATE INDEX IF NOT EXISTS idx_subcategories_category '
+          'ON subcategories (category_id, deleted_at)',
+      // Subcategory → cases, and the global search by title.
+      'CREATE INDEX IF NOT EXISTS idx_legal_cases_subcategory '
+          'ON legal_cases (subcategory_id, deleted_at)',
+      'CREATE INDEX IF NOT EXISTS idx_legal_cases_title '
+          'ON legal_cases (title)',
+      // A case → its roadmap, which is the single most frequent screen.
+      'CREATE INDEX IF NOT EXISTS idx_case_steps_case '
+          'ON case_steps (case_id, step_number)',
+    ];
+    for (final statement in statements) {
+      await customStatement(statement);
+    }
+  }
 }

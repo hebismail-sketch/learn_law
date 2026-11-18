@@ -32,6 +32,7 @@ void main() {
       SyncManager(
         db: database,
         supabase: SupabaseClient('http://localhost:54321', 'test-key'),
+        anonKey: 'test-key',
         connectivity: ConnectivityService(),
       ),
     );

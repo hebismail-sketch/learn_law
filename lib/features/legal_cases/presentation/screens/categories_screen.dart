@@ -10,6 +10,7 @@ import '../../../../core/app_info.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/injection_container.dart';
 import '../../../../core/sync/local_data_source.dart';
+import '../../../../core/sync/sync_manager.dart';
 import '../../../../core/sync/sync_refresh_listener.dart';
 import '../bloc/legal_cubit.dart';
 import '../bloc/legal_state.dart';
@@ -57,7 +58,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<LegalCubit>().fetchCategories();
+    // Backstop for a cubit that was created without its first fetch, so a home
+    // screen can never sit on "loading" forever. Repeated calls are harmless:
+    // the cubit re-reads the same local table.
+    final cubit = context.read<LegalCubit>();
+    if (cubit.state is LegalInitial) cubit.fetchCategories();
   }
 
   /// Asks for the account's password again before opening the editor.
@@ -140,12 +145,53 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (mounted) context.read<LegalCubit>().fetchCategories();
   }
 
+  /// Re-downloads the library, then reads it back from the phone.
+  ///
+  /// An empty category list is either a genuine server-side emptiness or a
+  /// download that never completed; both are fixed the same way, so this is
+  /// also what the empty state offers the reader.
+  Future<bool> _reloadFromServer(
+    LegalCubit cubit, {
+    bool reloadOnFailure = false,
+  }) async {
+    var downloaded = false;
+    try {
+      // Forced on purpose: the reader asked for a reload because something is
+      // missing, so the walk must not trust a watermark that may already sit
+      // past the rows they are looking for.
+      final result = await sl<SyncManager>().downloadAllContent(force: true);
+      downloaded = result.succeeded;
+    } catch (error, stackTrace) {
+      debugPrint('Reloading content failed: $error\n$stackTrace');
+    }
+    await cubit.refreshCategories();
+    LegalCaseFavorites.instance.notifyChanged();
+    if (!downloaded && reloadOnFailure) {
+      await cubit.fetchCategories();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذر التحميل. تأكد من اتصال الإنترنت وحاول مرة أخرى.',
+              textAlign: TextAlign.right,
+            ),
+          ),
+        );
+      }
+    }
+    return downloaded;
+  }
+
   Future<void> _toggleFavorite(CategoryEntity category) async {
     late final bool isFavorite;
     try {
       isFavorite = await LegalCaseFavorites.instance.toggleCategory(
         category.id,
       );
+      // The favourites tab lists categories through `_favoriteCategoryIds`, and
+      // this screen only rebuilds on a theme change — so without this the tab
+      // kept showing the list from the previous repaint.
+      if (mounted) setState(() {});
     } catch (error, stackTrace) {
       debugPrint('Failed to save category favorite: $error\n$stackTrace');
       if (mounted) {
@@ -304,8 +350,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 _SearchBar(onTap: _openSearch),
                 Expanded(
                   child: SyncRefreshListener(
-                    onSyncComplete: () =>
-                        context.read<LegalCubit>().refreshCategories(),
+                    // rebuildWithAppTheme listens to the theme, not to the
+                    // favourites store, so the favourites tab would keep
+                    // showing yesterday's list without this notification.
+                    onSyncComplete: () async {
+                      await context.read<LegalCubit>().refreshCategories();
+                      LegalCaseFavorites.instance.notifyChanged();
+                    },
                     child: BlocBuilder<LegalCubit, LegalState>(
                       builder: (context, state) {
                         if (state is LegalLoading || state is LegalInitial) {
@@ -328,6 +379,17 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           );
                         }
                         if (state is CategoriesLoaded) {
+                          if (state.categories.isEmpty) {
+                            return _EmptyCategories(
+                              isFavorites: false,
+                              onReload: () => unawaited(
+                                _reloadFromServer(
+                                  context.read<LegalCubit>(),
+                                  reloadOnFailure: true,
+                                ),
+                              ),
+                            );
+                          }
                           return AnimatedBuilder(
                             animation: LegalCaseFavorites.instance,
                             builder: (context, _) =>
@@ -355,15 +417,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Widget _buildContent(List<CategoryEntity> categories) {
-    final visibleCategories = _selectedTab == 0
+    final isFavoritesTab = _selectedTab == 1;
+    final favoriteCategoryIds = LegalCaseFavorites.instance.categoryIds;
+    final visibleCategories = isFavoritesTab
         ? categories
-        : categories
-              .where(
-                (category) =>
-                    LegalCaseFavorites.instance.containsCategory(category.id),
-              )
-              .toList();
-    final favoriteCases = _selectedTab == 1
+              .where((category) => favoriteCategoryIds.contains(category.id))
+              .toList()
+        : categories;
+    final favoriteCases = isFavoritesTab
         ? LegalCaseFavorites.instance.cases
         : const <LegalCaseEntity>[];
 
@@ -388,27 +449,42 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     const SizedBox(height: 18),
                   ],
                   if (visibleCategories.isEmpty && favoriteCases.isEmpty)
-                    _EmptyCategories(isFavorites: _selectedTab == 1)
+                    _EmptyCategories(
+                      isFavorites: isFavoritesTab,
+                      onReload: isFavoritesTab
+                          ? null
+                          : () => unawaited(
+                              _reloadFromServer(
+                                context.read<LegalCubit>(),
+                                reloadOnFailure: true,
+                              ),
+                            ),
+                    )
                   else ...[
-                    for (
-                      var index = 0;
-                      index < visibleCategories.length;
-                      index++
-                    ) ...[
-                      _CategoryCard(
-                        key: ValueKey(
-                          'home-category-${visibleCategories[index].id}',
+                    // A favourited category is not necessarily a favourite
+                    // *case*: without this the tab said "no favourites" while
+                    // its category list was on screen underneath.
+                    if (visibleCategories.isNotEmpty) ...[
+                      for (
+                        var index = 0;
+                        index < visibleCategories.length;
+                        index++
+                      ) ...[
+                        _CategoryCard(
+                          key: ValueKey(
+                            'home-category-${visibleCategories[index].id}',
+                          ),
+                          category: visibleCategories[index],
+                          index: categories.indexOf(visibleCategories[index]),
+                          isFavorite: LegalCaseFavorites.instance
+                              .containsCategory(visibleCategories[index].id),
+                          onTap: () => _openCategory(visibleCategories[index]),
+                          onLongPress: () =>
+                              _toggleFavorite(visibleCategories[index]),
                         ),
-                        category: visibleCategories[index],
-                        index: categories.indexOf(visibleCategories[index]),
-                        isFavorite: LegalCaseFavorites.instance
-                            .containsCategory(visibleCategories[index].id),
-                        onTap: () => _openCategory(visibleCategories[index]),
-                        onLongPress: () =>
-                            _toggleFavorite(visibleCategories[index]),
-                      ),
-                      if (index != visibleCategories.length - 1)
-                        const SizedBox(height: 12),
+                        if (index != visibleCategories.length - 1)
+                          const SizedBox(height: 12),
+                      ],
                     ],
                     if (favoriteCases.isNotEmpty) ...[
                       if (visibleCategories.isNotEmpty)
@@ -444,6 +520,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             ),
                           ],
                         ),
+                    ],
+                    if (favoriteCases.isEmpty && !isFavoritesTab) ...[
+                      const SizedBox(height: 18),
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          end: 8,
+                          bottom: 6,
+                        ),
+                        child: Text(
+                          'اضغط مطولاً على أي تصنيف لحفظه في المفضلة.',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 ],
@@ -1234,9 +1327,12 @@ class _CategoryCard extends StatelessWidget {
 }
 
 class _EmptyCategories extends StatelessWidget {
-  const _EmptyCategories({required this.isFavorites});
+  const _EmptyCategories({required this.isFavorites, this.onReload});
 
   final bool isFavorites;
+
+  /// Offered when the library looks empty: reload it from the server.
+  final VoidCallback? onReload;
 
   @override
   Widget build(BuildContext context) {
@@ -1274,6 +1370,19 @@ class _EmptyCategories extends StatelessWidget {
               'أضف التصنيفات أو الدعاوى إلى المفضلة لتظهر هنا',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+            ),
+          ] else if (onReload != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'اضغط لإعادة تحميل القضايا من الخادم',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onReload,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('إعادة التحميل'),
             ),
           ],
         ],

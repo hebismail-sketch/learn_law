@@ -57,6 +57,7 @@ void main() {
         reviewClient: reviewClient,
         reviewOnly: true,
         connectivity: _OfflineConnectivityService(),
+        anonKey: 'review-test-key',
         databaseFactory: (_) => AppDatabase.forTesting(NativeDatabase.memory()),
       );
 
@@ -87,6 +88,7 @@ void main() {
         productionClient: productionClient,
         reviewClient: reviewClient,
         connectivity: _OfflineConnectivityService(),
+        anonKey: 'production-test-key',
         databaseFactory: (_) => AppDatabase.forTesting(NativeDatabase.memory()),
       );
 
