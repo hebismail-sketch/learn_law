@@ -17,9 +17,16 @@ enum AppBackendEnvironment { production, review }
 /// `app_metadata` is server-managed, so the role cannot be set by the user.
 /// This only inspects a [User] that Auth already returned; use
 /// [verifyAdminRole] when the answer has to be current.
+///
+/// Both claim spellings are accepted because the dashboards the owner uses
+/// disagree: migration v2 documents `learn_law_role`, the review project
+/// grants plain `role`. Reading either keeps a correctly-provisioned account
+/// working regardless of which convention the operator followed.
 Future<bool> hasAdminRole(User? user) async {
   if (user == null) return false;
-  return user.appMetadata['role'] == 'admin';
+  final metadata = user.appMetadata;
+  return metadata['role'] == 'admin' ||
+      metadata['learn_law_role'] == 'admin';
 }
 
 /// Re-reads the user from the server that owns [client] and checks the role.

@@ -39,7 +39,9 @@ class AdminGuard {
   static Future<bool> verify(SupabaseClient client) async {
     if (!hasSignedInSession(client)) return false;
     final user = await _serverUser(client);
-    return user?.appMetadata['role'] == 'admin';
+    final metadata = user?.appMetadata;
+    return metadata?['role'] == 'admin' ||
+        metadata?['learn_law_role'] == 'admin';
   }
 
   /// Same question as [verify], but usable when the Auth server may be
@@ -68,7 +70,9 @@ class AdminGuard {
       user = null;
     }
     user ??= _restoredUser(client);
-    return user?.appMetadata['role'] == 'admin';
+    final metadata = user?.appMetadata;
+    return metadata?['role'] == 'admin' ||
+        metadata?['learn_law_role'] == 'admin';
   }
 
   static Future<User?> _serverUser(SupabaseClient client) async {

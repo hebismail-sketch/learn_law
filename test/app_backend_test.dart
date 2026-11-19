@@ -18,6 +18,13 @@ void main() {
       'app_metadata': <String, dynamic>{'role': 'admin'},
       'user_metadata': <String, dynamic>{},
     });
+    final adminAlternateClaim = User.fromJson({
+      'id': 'admin-user-2',
+      'aud': 'authenticated',
+      'created_at': '2026-01-01T00:00:00Z',
+      'app_metadata': <String, dynamic>{'learn_law_role': 'admin'},
+      'user_metadata': <String, dynamic>{},
+    });
     final userControlledRole = User.fromJson({
       'id': 'regular-user',
       'aud': 'authenticated',
@@ -25,9 +32,18 @@ void main() {
       'app_metadata': <String, dynamic>{},
       'user_metadata': <String, dynamic>{'role': 'admin'},
     });
+    final wrongValue = User.fromJson({
+      'id': 'editor-user',
+      'aud': 'authenticated',
+      'created_at': '2026-01-01T00:00:00Z',
+      'app_metadata': <String, dynamic>{'learn_law_role': 'editor'},
+      'user_metadata': <String, dynamic>{},
+    });
 
     expect(await hasAdminRole(admin), isTrue);
+    expect(await hasAdminRole(adminAlternateClaim), isTrue);
     expect(await hasAdminRole(userControlledRole), isFalse);
+    expect(await hasAdminRole(wrongValue), isFalse);
     expect(await hasAdminRole(null), isFalse);
   });
 
