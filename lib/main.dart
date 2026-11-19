@@ -8,7 +8,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/app_backend.dart';
 import 'core/ads/ad_mob_service.dart';
 import 'core/app_theme.dart';
-import 'core/app_ui_scale.dart';
 import 'core/backend_environment_scope.dart';
 import 'core/injection_container.dart';
 import 'core/review_session_store.dart';
@@ -202,12 +201,7 @@ class MyApp extends StatelessWidget {
         valueListenable: AppThemeController.isLight,
         builder: (context, _, _) => Theme(
           data: AppColors.theme,
-          // Same visual size on every device: the whole UI scales up on
-          // tablets instead of showing the phone layout spread thin.
-          child: AppUiScale.applyScale(
-            context: context,
-            child: child ?? const SizedBox.shrink(),
-          ),
+          child: child ?? const SizedBox.shrink(),
         ),
       ),
       home: AppOpenAdStartupGate(

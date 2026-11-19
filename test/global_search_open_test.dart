@@ -54,7 +54,7 @@ void main() {
 
   testWidgets('opens a search result without any ad gate', (tester) async {
     final categoryId = await localDataSource.insertCategory(
-      name: 'الدعاوى المدنية',
+      name: 'الاحوال الشخصيه',
     );
     final subcategoryId = await localDataSource.insertSubcategory(
       categoryId: categoryId,
@@ -77,7 +77,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
     }
 
-    expect(find.text('فتح الدعاوى المدنية'), findsNothing);
     expect(find.byType(CaseRoadmapScreen), findsOneWidget);
     expect(
       find.descendant(

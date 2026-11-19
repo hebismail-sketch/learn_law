@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show AuthException, User;
 
+import '../../../../core/ads/category_access.dart';
 import '../../../../core/ads/ad_mob_service.dart';
 import '../../../../core/app_backend.dart';
 import '../../../../core/app_info.dart';
@@ -54,6 +56,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   int _secretTapCount = 0;
   int _selectedTab = 0;
   Timer? _secretTapTimer;
+  final Set<String> _unlockedCategoryIds = {};
+  String? _categoryStatusSnapshot;
 
   @override
   void initState() {
@@ -92,6 +96,58 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     } on AuthException {
       return false;
     }
+  }
+
+  /// Explains why the editor stayed closed, using the same server answer the
+  /// gate just read.
+  ///
+  /// Two causes look identical from the phone — the account lacks the claim,
+  /// or the claim was granted after this session's token was issued — so the
+  /// message names both, instead of leaving the editor silently refusing.
+  /// Neither case is a client bug: only the Auth server can write the claim.
+  Future<void> _explainAdminGate(bool adminClaimPresent) async {
+    if (adminClaimPresent) {
+      _showSnackBar(
+        'دور المسؤول موجود في الحساب، لكن الجلسة الحالية أُنشئت قبله. '
+        'سجّل الخروج ثم الدخول من زر الإدارة، أو أعد تشغيل التطبيق.',
+      );
+      return;
+    }
+
+    User? user;
+    try {
+      user = sl<AppBackendRegistry>().client.auth.currentUser;
+    } on AuthException {
+      user = null;
+    }
+    if (user == null) return;
+
+    // A role saved under the user-editable metadata is the mistake the server
+    // refuses, and the owner can fix it in one place.
+    final editableRole = user.userMetadata?['role'];
+    final editableAlternate = user.userMetadata?['learn_law_role'];
+    final hint = (editableRole == 'admin' || editableAlternate == 'admin')
+        ? ' الدور محفوظ في User Metadata، وهذا الجزء يتحكم فيه صاحب الحساب. '
+              'الصحيح أن يُكتب في App Metadata (أو Raw App MetaData): '
+              '{"role": "admin"}.'
+        : ' أضف في Authentication ← المستخدم ← Edit ← App Metadata: '
+              '{"role": "admin"}، ثم سجّل الدخول من جديد.';
+
+    _showSnackBar(
+      'سجّل الدخول صحيحًا، لكن حساب ${user.email ?? ''} لا يحمل دور '
+      'المسؤول على خادم قاعدة البيانات بعد.$hint',
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message, textAlign: TextAlign.right),
+          duration: const Duration(seconds: 8),
+        ),
+      );
   }
 
   @override
@@ -133,6 +189,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       return;
     }
     if (!mounted) return;
+    if (!isAuthorizedAdmin) {
+      final signedIn = backend.hasSignedInSession;
+      final claimPresent =
+          signedIn && await hasAdminRole(backend.client.auth.currentUser);
+      if (!mounted) return;
+      if (signedIn) {
+        // The sign-in form would only report the same refusal again; say what
+        // the server actually returned instead.
+        await _explainAdminGate(claimPresent);
+        return;
+      }
+    }
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -240,6 +308,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Future<void> _openCategory(CategoryEntity category) async {
+    final canOpen = await CategoryAccess.requestAccess(
+      context,
+      categoryId: category.id,
+      categoryName: category.name,
+    );
+    if (!canOpen) {
+      if (mounted && _unlockedCategoryIds.remove(category.id)) {
+        setState(() {});
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (!CategoryAccess.isAlwaysFree(category.name)) {
+      setState(() => _unlockedCategoryIds.add(category.id));
+    }
     unawaited(
       AdMobService.pushWithInterstitial(
         context,
@@ -314,6 +397,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     if (!mounted) return;
 
+    final canOpen = await CategoryAccess.requestAccess(
+      context,
+      categoryId: resolvedCategoryId,
+      categoryName: resolvedCategoryName,
+    );
+    if (!canOpen || !mounted) return;
+
+    if (!CategoryAccess.isAlwaysFree(resolvedCategoryName)) {
+      setState(() => _unlockedCategoryIds.add(resolvedCategoryId));
+    }
     unawaited(
       AdMobService.pushWithInterstitial(
         context,
@@ -416,7 +509,31 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     });
   }
 
+  void _loadCategoryAccessStatuses(List<CategoryEntity> categories) {
+    final snapshot = categories
+        .map((category) => '${category.id}\u0001${category.name}')
+        .join('\u0002');
+    if (snapshot == _categoryStatusSnapshot) return;
+    _categoryStatusSnapshot = snapshot;
+    unawaited(() async {
+      final unlockedIds = <String>{};
+      for (final category in categories) {
+        if (CategoryAccess.isAlwaysFree(category.name)) continue;
+        if (await CategoryAccess.isUnlocked(category.id)) {
+          unlockedIds.add(category.id);
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _unlockedCategoryIds
+          ..clear()
+          ..addAll(unlockedIds);
+      });
+    }());
+  }
+
   Widget _buildContent(List<CategoryEntity> categories) {
+    _loadCategoryAccessStatuses(categories);
     final isFavoritesTab = _selectedTab == 1;
     final favoriteCategoryIds = LegalCaseFavorites.instance.categoryIds;
     final visibleCategories = isFavoritesTab
@@ -478,6 +595,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           index: categories.indexOf(visibleCategories[index]),
                           isFavorite: LegalCaseFavorites.instance
                               .containsCategory(visibleCategories[index].id),
+                          isLocked:
+                              !CategoryAccess.isAlwaysFree(
+                                visibleCategories[index].name,
+                              ) &&
+                              !_unlockedCategoryIds.contains(
+                                visibleCategories[index].id,
+                              ),
                           onTap: () => _openCategory(visibleCategories[index]),
                           onLongPress: () =>
                               _toggleFavorite(visibleCategories[index]),
@@ -1125,6 +1249,7 @@ class _CategoryCard extends StatelessWidget {
     required this.category,
     required this.index,
     required this.isFavorite,
+    required this.isLocked,
     required this.onTap,
     required this.onLongPress,
   });
@@ -1132,6 +1257,7 @@ class _CategoryCard extends StatelessWidget {
   final CategoryEntity category;
   final int index;
   final bool isFavorite;
+  final bool isLocked;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -1226,7 +1352,9 @@ class _CategoryCard extends StatelessWidget {
                             : const Color(0x332A3B5D),
                       ),
                       child: Icon(
-                        Icons.chevron_right_rounded,
+                        isLocked
+                            ? Icons.lock_outline_rounded
+                            : Icons.chevron_right_rounded,
                         color: isLight
                             ? const Color(0xFF53647D)
                             : const Color(0xFFD7E4F8),
