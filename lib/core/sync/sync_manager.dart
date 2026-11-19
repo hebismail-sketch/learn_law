@@ -9,6 +9,7 @@ import '../legal_text.dart';
 import 'admin_guard.dart';
 import 'app_database.dart';
 import 'connectivity_service.dart';
+import 'local_data_source.dart';
 import 'sync_types.dart';
 
 /// Result of a single sync run.
@@ -89,10 +90,9 @@ class _PushQueueResult {
 class SyncManager {
   static const _caseStepsBackfillMarker = '__case_steps_backfill_v1__';
 
-  /// Bumped to v3 when the download stopped carrying soft-deleted rows: the
-  /// marker name doubles as the "this build's rules completed" record, so a
-  /// phone filled under v2 downloads again without the deleted content.
-  static const _fullDownloadMarker = '__full_content_download_v3__';
+  /// Bumped to v4 when duplicate cases were merged by max steps on Supabase
+  /// and local deduplication was updated to group by case title across subcategories.
+  static const _fullDownloadMarker = '__full_content_download_v4__';
 
   /// Rows per request.
   ///
@@ -529,6 +529,8 @@ class SyncManager {
           skipped: skipped,
         );
       }
+
+      await LocalDataSourceImpl(db).consolidateAndDeduplicateData();
 
       // The marker and the watermarks are committed together, so "ready" can
       // never be true while a table is still missing its rows.

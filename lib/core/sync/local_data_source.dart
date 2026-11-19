@@ -118,6 +118,11 @@ abstract class LocalDataSource {
   });
 
   Future<void> deleteCaseStep({required String id});
+
+  /// Deduplicates categories, subcategories, legal cases, and steps.
+  /// For duplicate cases, preserves the case with the MAXIMUM step count and merges
+  /// any missing steps into it. Excludes soft-deleted items.
+  Future<void> consolidateAndDeduplicateData();
 }
 
 class LocalDataSourceImpl implements LocalDataSource {
@@ -161,7 +166,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   // ------------------------------ reads ------------------------------
 
   @override
-  Future<List<LocalCategory>> getCategories() {
+  Future<List<LocalCategory>> getCategories() async {
     return (db.select(db.categories)..where((t) => t.deletedAt.isNull())).get();
   }
 
@@ -298,7 +303,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   // -------------------------- subcategories --------------------------
 
   @override
-  Future<List<LocalSubcategory>> getSubcategories(String categoryId) {
+  Future<List<LocalSubcategory>> getSubcategories(String categoryId) async {
     return (db.select(
           db.subcategories,
         )..where((t) => t.categoryId.equals(categoryId) & t.deletedAt.isNull()))
@@ -403,7 +408,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   // --------------------------- legal_cases ---------------------------
 
   @override
-  Future<List<LocalLegalCase>> getLegalCases(String subcategoryId) {
+  Future<List<LocalLegalCase>> getLegalCases(String subcategoryId) async {
     return (db.select(db.legalCases)..where(
           (t) => t.subcategoryId.equals(subcategoryId) & t.deletedAt.isNull(),
         ))
@@ -569,7 +574,7 @@ class LocalDataSourceImpl implements LocalDataSource {
   // ---------------------------- case_steps ---------------------------
 
   @override
-  Future<List<LocalCaseStep>> getCaseSteps(String caseId) {
+  Future<List<LocalCaseStep>> getCaseSteps(String caseId) async {
     return (db.select(db.caseSteps)
           ..where((t) => t.caseId.equals(caseId) & t.deletedAt.isNull())
           ..orderBy([(t) => OrderingTerm.asc(t.stepNumber)]))
@@ -869,5 +874,271 @@ class LocalDataSourceImpl implements LocalDataSource {
             actorId: Value(_queuedActorId),
           ),
         );
+  }
+
+  @override
+  Future<void> consolidateAndDeduplicateData() async {
+    final now = DateTime.now().toUtc();
+
+    await db.transaction(() async {
+      // 1. Deduplicate Categories
+      final allCategories = await (db.select(db.categories)
+            ..where((t) => t.deletedAt.isNull()))
+          .get();
+      final categoryGroups = <String, List<LocalCategory>>{};
+      for (final cat in allCategories) {
+        final key = _normalizeKey(cat.name);
+        if (key.isNotEmpty) {
+          categoryGroups.putIfAbsent(key, () => []).add(cat);
+        }
+      }
+
+      for (final group in categoryGroups.values) {
+        if (group.length <= 1) continue;
+
+        final counts = <String, int>{};
+        for (final cat in group) {
+          final subCount = await (db.select(db.subcategories)
+                ..where(
+                  (t) =>
+                      t.categoryId.equals(cat.id) & t.deletedAt.isNull(),
+                ))
+              .get()
+              .then((l) => l.length);
+          counts[cat.id] = subCount;
+        }
+
+        group.sort((a, b) {
+          final countA = counts[a.id] ?? 0;
+          final countB = counts[b.id] ?? 0;
+          if (countA != countB) return countB.compareTo(countA);
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+
+        final primaryCategory = group.first;
+        for (int i = 1; i < group.length; i++) {
+          final dupCat = group[i];
+          await (db.update(db.subcategories)
+                ..where((t) => t.categoryId.equals(dupCat.id)))
+              .write(
+                SubcategoriesCompanion(
+                  categoryId: Value(primaryCategory.id),
+                  updatedAt: Value(now),
+                ),
+              );
+          await (db.update(db.categories)..where((t) => t.id.equals(dupCat.id)))
+              .write(
+                CategoriesCompanion(
+                  deletedAt: Value(now),
+                  updatedAt: Value(now),
+                ),
+              );
+        }
+      }
+
+      // 2. Deduplicate Subcategories
+      final allSubcategories = await (db.select(db.subcategories)
+            ..where((t) => t.deletedAt.isNull()))
+          .get();
+      final subcategoryGroups = <String, List<LocalSubcategory>>{};
+      for (final sub in allSubcategories) {
+        final key = '${sub.categoryId}\u0000${_normalizeKey(sub.name)}';
+        if (_normalizeKey(sub.name).isNotEmpty) {
+          subcategoryGroups.putIfAbsent(key, () => []).add(sub);
+        }
+      }
+
+      for (final group in subcategoryGroups.values) {
+        if (group.length <= 1) continue;
+
+        final counts = <String, int>{};
+        for (final sub in group) {
+          final caseCount = await (db.select(db.legalCases)
+                ..where(
+                  (t) =>
+                      t.subcategoryId.equals(sub.id) & t.deletedAt.isNull(),
+                ))
+              .get()
+              .then((l) => l.length);
+          counts[sub.id] = caseCount;
+        }
+
+        group.sort((a, b) {
+          final countA = counts[a.id] ?? 0;
+          final countB = counts[b.id] ?? 0;
+          if (countA != countB) return countB.compareTo(countA);
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+
+        final primarySub = group.first;
+        for (int i = 1; i < group.length; i++) {
+          final dupSub = group[i];
+          await (db.update(db.legalCases)
+                ..where((t) => t.subcategoryId.equals(dupSub.id)))
+              .write(
+                LegalCasesCompanion(
+                  subcategoryId: Value(primarySub.id),
+                  updatedAt: Value(now),
+                ),
+              );
+          await (db.update(db.subcategories)
+                ..where((t) => t.id.equals(dupSub.id)))
+              .write(
+                SubcategoriesCompanion(
+                  deletedAt: Value(now),
+                  updatedAt: Value(now),
+                ),
+              );
+        }
+      }
+
+      // 3. Deduplicate Legal Cases (Keep case with MAXIMUM steps!)
+      final allLegalCases = await (db.select(db.legalCases)
+            ..where((t) => t.deletedAt.isNull()))
+          .get();
+      final caseGroups = <String, List<LocalLegalCase>>{};
+      for (final lc in allLegalCases) {
+        final normTitle = _normalizeKey(lc.title);
+        if (normTitle.isNotEmpty) {
+          caseGroups.putIfAbsent(normTitle, () => []).add(lc);
+        }
+      }
+
+      for (final group in caseGroups.values) {
+        if (group.length <= 1) continue;
+
+        final stepCounts = <String, int>{};
+        for (final lc in group) {
+          final steps = await (db.select(db.caseSteps)
+                ..where(
+                  (t) => t.caseId.equals(lc.id) & t.deletedAt.isNull(),
+                ))
+              .get();
+          stepCounts[lc.id] = steps.length;
+        }
+
+        group.sort((a, b) {
+          final countA = stepCounts[a.id] ?? 0;
+          final countB = stepCounts[b.id] ?? 0;
+          if (countA != countB) return countB.compareTo(countA); // Max steps first!
+          final descLenA = a.description?.length ?? 0;
+          final descLenB = b.description?.length ?? 0;
+          if (descLenA != descLenB) return descLenB.compareTo(descLenA);
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+
+        final primaryCase = group.first;
+
+        final primarySteps = await (db.select(db.caseSteps)
+              ..where(
+                (t) => t.caseId.equals(primaryCase.id) & t.deletedAt.isNull(),
+              ))
+            .get();
+        final primaryStepKeys = {
+          for (final s in primarySteps)
+            '${s.stepNumber}\u0000${_normalizeKey(s.title)}',
+        };
+
+        for (int i = 1; i < group.length; i++) {
+          final dupCase = group[i];
+          final dupSteps = await (db.select(db.caseSteps)
+                ..where(
+                  (t) => t.caseId.equals(dupCase.id) & t.deletedAt.isNull(),
+                ))
+              .get();
+
+          for (final step in dupSteps) {
+            final stepKey =
+                '${step.stepNumber}\u0000${_normalizeKey(step.title)}';
+            if (!primaryStepKeys.contains(stepKey)) {
+              await (db.update(db.caseSteps)
+                    ..where((t) => t.id.equals(step.id)))
+                  .write(
+                    CaseStepsCompanion(
+                      caseId: Value(primaryCase.id),
+                    ),
+                  );
+              primaryStepKeys.add(stepKey);
+            } else {
+              await (db.update(db.caseSteps)
+                    ..where((t) => t.id.equals(step.id)))
+                  .write(
+                    CaseStepsCompanion(
+                      deletedAt: Value(now),
+                    ),
+                  );
+            }
+          }
+
+          await (db.update(db.legalCases)
+                ..where((t) => t.id.equals(dupCase.id)))
+              .write(
+                LegalCasesCompanion(
+                  deletedAt: Value(now),
+                ),
+              );
+        }
+      }
+
+      // 4. Case Steps cleanup & re-indexing
+      final activeCases = await (db.select(db.legalCases)
+            ..where((t) => t.deletedAt.isNull()))
+          .get();
+      for (final lc in activeCases) {
+        final steps = await (db.select(db.caseSteps)
+              ..where((t) => t.caseId.equals(lc.id) & t.deletedAt.isNull())
+              ..orderBy([
+                (t) => OrderingTerm.asc(t.stepNumber),
+                (t) => OrderingTerm.desc(t.updatedAt),
+              ]))
+            .get();
+
+        if (steps.isEmpty) continue;
+
+        final uniqueSteps = <LocalCaseStep>[];
+        final seenNumbers = <int>{};
+        final seenTitles = <String>{};
+
+        for (final step in steps) {
+          final normTitle = _normalizeKey(step.title);
+          if (seenNumbers.contains(step.stepNumber) ||
+              (normTitle.isNotEmpty && seenTitles.contains(normTitle))) {
+            await (db.update(db.caseSteps)
+                  ..where((t) => t.id.equals(step.id)))
+                .write(
+                  CaseStepsCompanion(
+                    deletedAt: Value(now),
+                    updatedAt: Value(now),
+                  ),
+                );
+          } else {
+            seenNumbers.add(step.stepNumber);
+            if (normTitle.isNotEmpty) seenTitles.add(normTitle);
+            uniqueSteps.add(step);
+          }
+        }
+
+        for (int i = 0; i < uniqueSteps.length; i++) {
+          final targetNumber = i + 1;
+          if (uniqueSteps[i].stepNumber != targetNumber) {
+            await (db.update(db.caseSteps)
+                  ..where((t) => t.id.equals(uniqueSteps[i].id)))
+                .write(
+                  CaseStepsCompanion(
+                    stepNumber: Value(targetNumber),
+                    updatedAt: Value(now),
+                  ),
+                );
+          }
+        }
+      }
+    });
+  }
+
+  String _normalizeKey(String input) {
+    return stripLegalTextSymbols(input)
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .toLowerCase();
   }
 }
