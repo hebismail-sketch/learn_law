@@ -34,6 +34,7 @@
 learnlaw-upload-key-*
 
 # Local data exports and throwaway maintenance reports.
+/backup_cases/
 /case_health_report.csv
 /retired_empty_cases.json
 /scripts/probe_*.mjs
