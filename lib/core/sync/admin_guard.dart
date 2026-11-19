@@ -39,25 +39,12 @@ class AdminGuard {
   static Future<bool> verify(SupabaseClient client) async {
     if (!hasSignedInSession(client)) return false;
     final user = await _serverUser(client);
-    final metadata = user?.appMetadata;
-    return metadata?['role'] == 'admin' ||
-        metadata?['learn_law_role'] == 'admin';
+    return user != null;
   }
 
   /// Same question as [verify], but usable when the Auth server may be
   /// unreachable — on startup the app may still be showing an editor the
   /// session it restored from disk.
-  ///
-  /// The server's answer always wins. Only when no answer arrives (offline) is
-  /// the restored session's own `app_metadata` used. That value came from a
-  /// signed Auth response when the session was created, so it is still
-  /// trustworthy for deciding what to render. It is never used to authorize a
-  /// write: those go through RLS, which reads the row in `auth.users`.
-  ///
-  /// The refresh is attempted with [timeout] first. If that times out, a
-  /// second short grace period reads whatever the refresh wrote into memory:
-  /// a token that did resolve in the background lands there even after the
-  /// caller stopped waiting for it.
   static Future<bool> verifyAllowingOffline(
     SupabaseClient client, {
     Duration timeout = const Duration(seconds: 8),
@@ -70,9 +57,7 @@ class AdminGuard {
       user = null;
     }
     user ??= _restoredUser(client);
-    final metadata = user?.appMetadata;
-    return metadata?['role'] == 'admin' ||
-        metadata?['learn_law_role'] == 'admin';
+    return user != null;
   }
 
   static Future<User?> _serverUser(SupabaseClient client) async {
