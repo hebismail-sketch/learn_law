@@ -1,136 +1,130 @@
 -- ===========================================================================
 -- PRODUCTION: NOBODY CAN CREATE AN ACCOUNT
 -- ===========================================================================
--- Goal: only the admin accounts that already exist can sign in. No stranger can
--- open the app, reach Supabase and create a new account (email signup), and
--- therefore nobody can reach the admin area with an account they created.
+-- Goal: only the admin accounts that already exist can sign in. A stranger who
+-- installs the app cannot create an account, so nobody can reach the admin area
+-- with an account they made themselves.
 --
--- It closes the door in three places, in this order of importance:
+-- HOW TO RUN (important)
+--   Supabase Dashboard -> SQL Editor -> New query.
+--   Paste the file, then run each block that ends with ";" on its own, in
+--   order (select a block, or place the cursor in it and press Run). The editor
+--   executes one statement per run and refuses multi-statement scripts.
 --
---   1. SIGNUP      public signup is disabled, so POST /auth/v1/signup is
---                  refused with "Signups not allowed for this instance".
---                  Sign in with an existing account keeps working.
---   2. ANONYMOUS   the anonymous-signin provider is disabled, so the app's
---                  publishable key cannot mint a throwaway user either.
---   3. THE APP     the app already has no "create account" screen, and
---                  android/app/build.gradle.kts refuses a release build that
---                  still carries Google's sample AdMob ids.
---
--- HOW TO RUN
---   Supabase Dashboard -> SQL Editor -> paste this whole file -> Run.
---   The update on auth.users is re-read by GoTrue, so no restart is needed.
---   Idempotent: running it twice changes nothing.
+-- Every block is idempotent: running it twice changes nothing.
 --
 -- WHAT THIS FILE DOES NOT DO
 --   * it does not create, delete or promote any account
 --   * it does not change any password or e-mail
 --   * it does not touch the content tables or their RLS policies
+--
+-- NOTE ON `disable_signup`
+--   There is no such column in auth.users. The flag lives in the Auth server
+--   configuration, which is exactly the dashboard toggle in step 3 below.
 -- ===========================================================================
 
-begin;
 
--- 1) Public signup OFF ------------------------------------------------------
--- GoTrue reads these two columns from auth.users for the service instance.
--- `disable_signup` was introduced in GoTrue v2.183; on older projects the
--- column does not exist, so it is added first (nothing else changes).
-alter table auth.users
-  add column if not exists disable_signup boolean not null default false;
-
-update auth.users
-   set disable_signup = true,
-       updated_at     = now()
- where disable_signup is distinct from true;
-
--- 2) Anonymous sign-in OFF --------------------------------------------------
--- Present only when the anonymous provider has ever been configured.
-do $$
-begin
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_schema = 'auth'
-      and table_name = 'users'
-      and column_name = 'is_anonymous'
-  ) then
-    update auth.users
-       set is_anonymous = false,
-           updated_at   = now()
-     where is_anonymous is true;
-  end if;
-end
-$$;
-
--- 3) Make the project itself refuse signup, even if the row above is reset ---
--- GoTrue also honours a trigger that raises on a brand-new auth user, which is
--- the only server-side hook available from SQL. It fires for INSERT only, so
--- the existing admin accounts are untouched, and the Dashboard "Add user" /
--- "Invite" flows are blocked too: an admin account is created only from the
--- SQL editor or the Admin API with the service role.
+-- ===========================================================================
+-- STEP 1 - the database refuses any new auth user
+-- ===========================================================================
+-- A brand-new row in auth.users means a brand-new account. This trigger raises
+-- for every insert except the trusted contexts: the SQL editor, the service
+-- role and the Admin API. It fires on INSERT only, so the existing admin
+-- accounts are never touched. It also blocks Dashboard "Add user" and "Invite",
+-- so a new admin account can only be created by an operation that runs as the
+-- service role.
 create or replace function public.learn_law_block_signup()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $$
+as $fn$
 begin
-  -- The Dashboard and the Admin API insert through the `supabase_admin` /
-  -- `service_role` context; GoTrue's public signup inserts as `supabase_auth_admin`.
-  if coalesce(auth.jwt() ->> 'role', '') = 'service_role'
+  if current_user in ('postgres', 'supabase_admin', 'service_role')
      or coalesce(current_setting('request.jwt.claim.role', true), '') = 'service_role'
-     or current_user in ('postgres', 'supabase_admin')
+     or coalesce((nullif(current_setting('request.jwt.claims', true), '')::jsonb) ->> 'role', '') = 'service_role'
   then
     return new;
   end if;
 
   raise exception
-    'Signups are disabled for this project. Ask the owner to create the account.'
+    'Signups are disabled for this project.'
     using errcode = '42501';
 end;
-$$;
+$fn$;
 
+
+-- ===========================================================================
+-- STEP 2 - attach the trigger (and remove an older copy of it)
+-- ===========================================================================
 drop trigger if exists learn_law_block_signup on auth.users;
+
+
 create trigger learn_law_block_signup
   before insert on auth.users
   for each row
   execute function public.learn_law_block_signup();
 
--- 4) Verification (read-only report) ----------------------------------------
+
+-- ===========================================================================
+-- STEP 3 - verify (read-only, safe to run any time)
+-- ===========================================================================
+-- 3a) The accounts that exist, and the role each one carries.
 select u.email,
-       u.disable_signup,
-       u.email_confirmed_at is not null as email_confirmed,
-       u.raw_app_meta_data ->> 'role'           as app_role,
+       u.email_confirmed_at is not null       as email_confirmed,
+       u.raw_app_meta_data ->> 'role'          as app_role,
        u.raw_app_meta_data ->> 'learn_law_role' as app_learn_law_role,
        u.last_sign_in_at
 from auth.users u
 order by u.created_at;
 
-select tgname as trigger_name, tgenabled as enabled
-from pg_trigger
-where tgrelid = 'auth.users'::regclass
-  and not tgisinternal;
 
-commit;
+-- 3b) The trigger must be listed here (tgenabled = 'O' means enabled).
+select t.tgname                     as trigger_name,
+       t.tgenabled                  as enabled,
+       p.proname                    as function_name
+from pg_trigger t
+join pg_proc p on p.oid = t.tgfoid
+where t.tgrelid = 'auth.users'::regclass
+  and not t.tgisinternal;
+
+
+-- 3c) Prove the trigger bites: this insert must FAIL with
+--     "Signups are disabled for this project." (it is rolled back either way).
+do $test$
+begin
+  begin
+    insert into auth.users (id, instance_id, aud, role)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000',
+            'authenticated', 'authenticated');
+    raise exception 'CHECK FAILED: the guard did not block the insert';
+  exception
+    when insufficient_privilege then
+      raise notice 'OK: new auth users are blocked.';
+  end;
+end
+$test$;
+
 
 -- ===========================================================================
--- MANUAL CHECKS AFTER RUNNING (do these once)
+-- STEP 4 - the dashboard toggle (manual, one minute)
 -- ===========================================================================
--- a) From the Supabase dashboard: Authentication -> Sign In / Providers ->
---    Email: "Allow new users to sign up" must be OFF as well. If it is still
---    ON there, the server setting wins over this SQL, so switch it off too.
---    (That toggle is what a stranger's first signup request reads.)
+-- 1. Authentication -> Sign In / Providers -> Email
+-- 2. Turn OFF "Allow new users to sign up" -> Save
+--    (The Auth server, not the database, answers the signup request first, so
+--     this toggle is what stops it before it ever reaches step 1.)
+-- 3. Authentication -> Providers -> Anonymous sign-ins: keep it OFF.
 --
--- b) Test a signup is really refused (PowerShell, your project ref + key):
+-- Test it from PowerShell (Settings -> API gives the project URL and the
+-- publishable key):
 --
---    Invoke-WebRequest -Method Post `
---      -Uri "https://<PROJECT>.supabase.co/auth/v1/signup" `
---      -Headers @{ apikey = "<PUBLISHABLE_KEY>"; "Content-Type" = "application/json" } `
---      -Body '{"email":"probe@example.com","password":"probe-123456"}'
+--   Invoke-WebRequest -Method Post -Uri "https://<PROJECT>.supabase.co/auth/v1/signup" -Headers @{ apikey = "<PUBLISHABLE_KEY>"; "Content-Type" = "application/json" } -Body '{"email":"probe@example.com","password":"probe-123456"}'
 --
---    Expected: HTTP 422 with "Signups not allowed for this instance".
+-- Expected: HTTP 422 with "Signups not allowed for this instance".
 --
--- c) Test the admin account still signs in: open the app, tap the title ten
---    times, use the admin account. It must reach the editor.
+-- Then open the app, tap the title ten times and sign in with an existing
+-- admin account: it must still reach the editor.
 --
--- d) If you ever need a new admin account, create it from the SQL editor
---    (service role) and then run scripts/fix_admin_account.sql with the new
---    address. The public signup route stays closed.
+-- If you ever need a new admin account, create it from the SQL editor (service
+-- role, so the trigger allows it) and then run scripts/fix_admin_account.sql
+-- with the new address. Public signup stays closed.
